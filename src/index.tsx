@@ -12,6 +12,40 @@ export type {
   UseWallScenesResult,
 } from './hooks/useWallScenes';
 
+export { useWallPosts } from './hooks/useWallPosts';
+export type {
+  UseWallPostsOptions,
+  UseWallPostsResult,
+} from './hooks/useWallPosts';
+
+export { useWallSubmit } from './hooks/useWallSubmit';
+export type {
+  UseWallSubmitOptions,
+  UseWallSubmitResult,
+  WallSubmitInput,
+} from './hooks/useWallSubmit';
+
+export { usePhotoCapture } from './hooks/usePhotoCapture';
+export type {
+  UsePhotoCaptureOptions,
+  UsePhotoCaptureResult,
+} from './hooks/usePhotoCapture';
+
+export { useSceneBackgrounds } from './hooks/useSceneBackgrounds';
+export type {
+  UseSceneBackgroundsOptions,
+  UseSceneBackgroundsResult,
+} from './hooks/useSceneBackgrounds';
+
+export { useAdminAccess } from './hooks/useAdminAccess';
+export type {
+  UseAdminAccessOptions,
+  UseAdminAccessResult,
+  AdminAccessMethod,
+  SessionUser,
+  SessionData,
+} from './hooks/useAdminAccess';
+
 // Helpers
 export {
   generateToken,
