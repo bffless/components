@@ -1,0 +1,159 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { RefObject } from 'react';
+import { generateToken, sanitizeTokenInput } from '../lib/token';
+
+export interface UseWallTokenOptions {
+  /** Endpoint for GET/POST owner-token operations. Defaults to '/api/admin/wall-scene-token'. */
+  adminEndpoint?: string;
+  /** Set true after admin role is confirmed; gates the GET fetch. */
+  isAdmin?: boolean;
+  /** URL search-param key carrying the token. Defaults to 't'. */
+  paramKey?: string;
+}
+
+export interface WallTokenAdmin {
+  currentToken: string;
+  input: string;
+  setInput: (v: string) => void;
+  generate: (len?: number) => void;
+  save: () => Promise<void>;
+  saving: boolean;
+  loaded: boolean;
+  shareUrl: string;
+  qrCanvasRef: RefObject<HTMLCanvasElement | null>;
+  downloadQR: () => void;
+  clear: () => void;
+}
+
+export interface UseWallTokenResult {
+  /** True iff the URL carried a token at mount; AI scene generation should be enabled. */
+  aiEnabled: boolean;
+  /** Live token value, in-memory only, captured once at mount. */
+  tokenRef: RefObject<string | null>;
+  /** Owner-only admin panel state. Always returned, but `loaded` stays false until an admin GET completes. */
+  admin: WallTokenAdmin;
+}
+
+/**
+ * Captures a one-shot wall-access token from the URL (`?t=<token>`) on mount and
+ * strips it from the address bar via `history.replaceState`. Held in-memory only —
+ * never persisted in localStorage / sessionStorage.
+ *
+ * When `isAdmin` is true, also fetches and exposes the admin token panel state
+ * (current token, editable input, generate/save handlers, QR canvas ref + download).
+ */
+export function useWallToken(opts?: UseWallTokenOptions): UseWallTokenResult {
+  const adminEndpoint = opts?.adminEndpoint ?? '/api/admin/wall-scene-token';
+  const isAdmin = opts?.isAdmin ?? false;
+  const paramKey = opts?.paramKey ?? 't';
+
+  const tokenRef = useRef<string | null>(null);
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [aiEnabled, setAiEnabled] = useState(false);
+
+  const [currentToken, setCurrentToken] = useState('');
+  const [input, setInput] = useState('');
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+
+  // Capture URL token once at mount and strip it from the address bar.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get(paramKey);
+    if (t) {
+      tokenRef.current = t.trim();
+      setAiEnabled(true);
+      params.delete(paramKey);
+      const qs = params.toString();
+      const newUrl =
+        window.location.pathname +
+        (qs ? '?' + qs : '') +
+        window.location.hash;
+      window.history.replaceState(null, '', newUrl);
+    }
+  }, [paramKey]);
+
+  // Fetch the persisted token for the admin panel, once we know the user is admin.
+  useEffect(() => {
+    if (!isAdmin || typeof window === 'undefined') return;
+    let cancelled = false;
+    fetch(adminEndpoint, { credentials: 'include' })
+      .then(res => (res.ok ? res.json() : { token: '' }))
+      .then((data: { token?: string }) => {
+        if (cancelled) return;
+        const t = (data.token as string) || '';
+        setCurrentToken(t);
+        setInput(t || generateToken(6));
+        setShareUrl(window.location.origin + window.location.pathname);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, adminEndpoint]);
+
+  const setInputSafe = useCallback((v: string) => {
+    setInput(sanitizeTokenInput(v));
+  }, []);
+
+  const generate = useCallback((len = 6) => {
+    setInput(generateToken(len));
+  }, []);
+
+  const save = useCallback(async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(adminEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ token: input }),
+      });
+      if (res.ok) {
+        const data: { token?: string } = await res.json();
+        setCurrentToken(data.token || '');
+      }
+    } finally {
+      setSaving(false);
+    }
+  }, [adminEndpoint, input]);
+
+  const downloadQR = useCallback(() => {
+    const canvas = qrCanvasRef.current;
+    if (!canvas || !currentToken) return;
+    const url = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `wall-qr-${currentToken}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }, [currentToken]);
+
+  const clear = useCallback(() => {
+    setInput('');
+  }, []);
+
+  return {
+    aiEnabled,
+    tokenRef,
+    admin: {
+      currentToken,
+      input,
+      setInput: setInputSafe,
+      generate,
+      save,
+      saving,
+      loaded,
+      shareUrl,
+      qrCanvasRef,
+      downloadQR,
+      clear,
+    },
+  };
+}
