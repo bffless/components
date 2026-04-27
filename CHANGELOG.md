@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.1](https://github.com/bffless/components/compare/v0.4.0...v0.4.1) (2026-04-27)
+
+
+### Miscellaneous
+
+* prepare for npm publishing via release-please ([5d2a87b](https://github.com/bffless/components/commit/5d2a87b3299ba7b4c57bf00253ae01b14fb6410a))
+* switch release-please to manifest mode anchored at 0.4.0 ([cd6b528](https://github.com/bffless/components/commit/cd6b528d8ef1139c673b72a943fcc937804e2624))
+* use vX.Y.Z tag format (no component prefix) ([b0f474e](https://github.com/bffless/components/commit/b0f474e6ea6e21dd633c65e363983eaa9b91dd20))
+
 ## 0.4.0
 
 **Breaking.** `TokenPanel` is now a compound component. The old single-element
