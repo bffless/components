@@ -3,9 +3,7 @@
   "version": "0.4.1",
   "description": "Hooks and headless React primitives that the BFFless site templates use under the hood — token URLs, scene rotation, photo capture, posting flows.",
   "main": "dist/index.js",
-  "module": "dist/index.js",
   "types": "dist/index.d.ts",
-  "type": "module",
   "files": [
     "dist"
   ],
