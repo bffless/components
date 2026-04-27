@@ -53,8 +53,18 @@ export type { PhotoboothBannerProps } from './primitives/Wall/PhotoboothBanner';
 export { TokenPanel } from './primitives/Wall/TokenPanel';
 export type {
   TokenPanelProps,
-  TokenPanelClassNames,
-  TokenPanelCopy,
+  TokenPanelToggleProps,
+  TokenPanelPanelProps,
+  TokenPanelDescriptionProps,
+  TokenPanelControlsProps,
+  TokenPanelInputProps,
+  TokenPanelGenerateProps,
+  TokenPanelSaveProps,
+  TokenPanelClearProps,
+  TokenPanelShareSectionProps,
+  TokenPanelShareLinkProps,
+  TokenPanelQRProps,
+  TokenPanelDownloadProps,
 } from './primitives/Wall/TokenPanel';
 
 // Helpers

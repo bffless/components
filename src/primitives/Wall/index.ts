@@ -4,6 +4,16 @@ export type { PhotoboothBannerProps } from './PhotoboothBanner';
 export { TokenPanel } from './TokenPanel';
 export type {
   TokenPanelProps,
-  TokenPanelClassNames,
-  TokenPanelCopy,
+  TokenPanelToggleProps,
+  TokenPanelPanelProps,
+  TokenPanelDescriptionProps,
+  TokenPanelControlsProps,
+  TokenPanelInputProps,
+  TokenPanelGenerateProps,
+  TokenPanelSaveProps,
+  TokenPanelClearProps,
+  TokenPanelShareSectionProps,
+  TokenPanelShareLinkProps,
+  TokenPanelQRProps,
+  TokenPanelDownloadProps,
 } from './TokenPanel';

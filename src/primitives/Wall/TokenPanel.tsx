@@ -1,82 +1,26 @@
-import type { ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import type { WallTokenAdmin } from '../../hooks/useWallToken';
 
-export interface TokenPanelClassNames {
-  /** Class on the outer wrapper. */
-  root?: string;
-  /** Class on the toggle button (icon + "Wall Access Token (set)"). */
-  toggle?: string;
-  /** Class on the icon inside the toggle. */
-  toggleIcon?: string;
-  /** Class on the collapsible panel. */
-  panel?: string;
-  /** Class on the description copy. */
-  description?: string;
-  /** Class on the input row container. */
-  controls?: string;
-  /** Class on the token <input>. */
-  input?: string;
-  /** Class on the "Generate" button. */
-  generate?: string;
-  /** Class on the "Save" button. */
-  save?: string;
-  /** Class on the "Clear" button. */
-  clear?: string;
-  /** Class on the share-link block container. */
-  shareSection?: string;
-  /** Class on the share-link <code>. */
-  shareLink?: string;
-  /** Class on the framed QR container (background, border). */
-  qrFrame?: string;
-  /** Class on the right-hand instruction column. */
-  qrColumn?: string;
-  /** Class on the QR instruction copy. */
-  qrInstruction?: string;
-  /** Class on the "Download PNG" button. */
-  downloadButton?: string;
-}
+// ─── Context ──────────────────────────────────────────────────────────────────
 
-export interface TokenPanelCopy {
-  /** Override the toggle label. Receives current token state. */
-  toggleLabel?: (state: { loaded: boolean; hasToken: boolean }) => ReactNode;
-  /** Override the description shown above the input. */
-  description?: ReactNode;
-  /** Override the placeholder on the input. Default: "6-char token" */
-  inputPlaceholder?: string;
-  generateLabel?: ReactNode;
-  saveLabel?: ReactNode;
-  savingLabel?: ReactNode;
-  clearLabel?: ReactNode;
-  shareSectionTitle?: ReactNode;
-  qrInstruction?: ReactNode;
-  downloadButtonLabel?: ReactNode;
-}
-
-export interface TokenPanelProps {
-  /** Output of `useWallToken().admin`. */
+interface TokenPanelContextValue {
   admin: WallTokenAdmin;
-  /** Whether the collapsible panel is open. Lift control to the consumer. */
   open: boolean;
-  /** Toggle handler — usually `() => setOpen(o => !o)`. */
   onToggle: () => void;
-  /** className overrides per slot. */
-  classNames?: TokenPanelClassNames;
-  /** Copy / label overrides. */
-  copy?: TokenPanelCopy;
-  /** Length of token to generate when "Generate" is clicked. Default 6. */
-  generateLength?: number;
-  /** Whether to render the QR / download row when a token is set. Default true. */
-  showQR?: boolean;
-  /** QR canvas size in px. Default 512 (canvas), displayed at 160×160. */
-  qrSize?: number;
-  /** QR display CSS size — passed to <QRCodeCanvas style>. Default 160. */
-  qrDisplaySize?: number;
-  /** Override the icon in the toggle. */
-  toggleIcon?: ReactNode;
-  /** Override the icon in the download button. */
-  downloadIcon?: ReactNode;
 }
+
+const TokenPanelContext = createContext<TokenPanelContextValue | null>(null);
+
+function useTokenPanelContext(): TokenPanelContextValue {
+  const ctx = useContext(TokenPanelContext);
+  if (!ctx) {
+    throw new Error('<TokenPanel.*> must be rendered inside <TokenPanel>.');
+  }
+  return ctx;
+}
+
+// ─── Default icons ────────────────────────────────────────────────────────────
 
 const DEFAULT_TOGGLE_ICON = (
   <svg
@@ -112,133 +56,292 @@ const DEFAULT_DOWNLOAD_ICON = (
   </svg>
 );
 
-/**
- * Owner-only admin panel for the wall access token.
- *
- * The panel is structured as: a collapsible toggle button → description →
- * (input + Generate + Save + Clear) → share link + QR + Download PNG.
- *
- * Every visual choice is exposed via either `classNames.*` or `copy.*`. The
- * lib bakes in the structure and the canvas-rendered QR (with PNG download via
- * `admin.downloadQR`); consumers bring brand classes.
- */
-export function TokenPanel({
+// ─── Root ─────────────────────────────────────────────────────────────────────
+
+export interface TokenPanelProps {
+  admin: WallTokenAdmin;
+  open: boolean;
+  onToggle: () => void;
+  className?: string;
+  children: ReactNode;
+}
+
+function TokenPanelRoot({
   admin,
   open,
   onToggle,
-  classNames = {},
-  copy = {},
-  generateLength = 6,
-  showQR = true,
-  qrSize = 512,
-  qrDisplaySize = 160,
-  toggleIcon = DEFAULT_TOGGLE_ICON,
-  downloadIcon = DEFAULT_DOWNLOAD_ICON,
+  className,
+  children,
 }: TokenPanelProps) {
+  return (
+    <TokenPanelContext.Provider value={{ admin, open, onToggle }}>
+      <div className={className}>{children}</div>
+    </TokenPanelContext.Provider>
+  );
+}
+
+// ─── Subcomponents ────────────────────────────────────────────────────────────
+
+export interface TokenPanelToggleProps {
+  className?: string;
+  /** Override the default label ("Wall Access Token (set)" / "(not set)"). */
+  children?: ReactNode;
+  /** Override the leading icon. Pass `null` to omit. */
+  icon?: ReactNode;
+}
+
+function Toggle({ className, children, icon }: TokenPanelToggleProps) {
+  const { admin, open, onToggle } = useTokenPanelContext();
   const hasToken = admin.currentToken.length > 0;
-  const toggleLabel = copy.toggleLabel
-    ? copy.toggleLabel({ loaded: admin.loaded, hasToken })
-    : (
+  const renderedIcon = icon === undefined ? DEFAULT_TOGGLE_ICON : icon;
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={className}
+      aria-expanded={open}
+    >
+      {renderedIcon}
+      {children ?? (
         <>
           Wall Access Token{' '}
           {admin.loaded ? (hasToken ? '(set)' : '(not set)') : ''}
         </>
-      );
-
-  return (
-    <div className={classNames.root}>
-      <button type="button" onClick={onToggle} className={classNames.toggle}>
-        <span className={classNames.toggleIcon}>{toggleIcon}</span>
-        {toggleLabel}
-      </button>
-      {open && (
-        <div className={classNames.panel}>
-          {copy.description !== null && (
-            <p className={classNames.description}>
-              {copy.description ?? (
-                <>
-                  Guests need this token in their wall URL (<code>?t=...</code>) to
-                  trigger AI scenes. Share via QR code or invite link. Empty means
-                  AI scenes always run.
-                </>
-              )}
-            </p>
-          )}
-          <div className={classNames.controls}>
-            <input
-              type="text"
-              value={admin.input}
-              onChange={e => admin.setInput(e.target.value)}
-              placeholder={copy.inputPlaceholder ?? '6-char token'}
-              className={classNames.input}
-            />
-            <button
-              type="button"
-              onClick={() => admin.generate(generateLength)}
-              className={classNames.generate}
-            >
-              {copy.generateLabel ?? 'Generate'}
-            </button>
-            <button
-              type="button"
-              disabled={admin.saving}
-              onClick={admin.save}
-              className={classNames.save}
-            >
-              {admin.saving
-                ? (copy.savingLabel ?? 'Saving...')
-                : (copy.saveLabel ?? 'Save')}
-            </button>
-            {hasToken && (
-              <button
-                type="button"
-                onClick={admin.clear}
-                className={classNames.clear}
-              >
-                {copy.clearLabel ?? 'Clear'}
-              </button>
-            )}
-          </div>
-          {showQR && hasToken && admin.shareUrl && (
-            <div className={classNames.shareSection}>
-              {copy.shareSectionTitle !== null && (
-                <p className={classNames.qrInstruction}>
-                  {copy.shareSectionTitle ?? 'Share link:'}
-                </p>
-              )}
-              <code className={classNames.shareLink}>
-                {`${admin.shareUrl}?t=${admin.currentToken}`}
-              </code>
-              <div className={classNames.qrColumn}>
-                <div className={classNames.qrFrame}>
-                  <QRCodeCanvas
-                    ref={admin.qrCanvasRef}
-                    value={`${admin.shareUrl}?t=${admin.currentToken}`}
-                    size={qrSize}
-                    level="M"
-                    marginSize={4}
-                    style={{ width: qrDisplaySize, height: qrDisplaySize }}
-                  />
-                </div>
-                <div>
-                  <p className={classNames.qrInstruction}>
-                    {copy.qrInstruction ??
-                      'Scan to open the wall with the token attached. Print this QR for the event.'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={admin.downloadQR}
-                    className={classNames.downloadButton}
-                  >
-                    {downloadIcon}
-                    {copy.downloadButtonLabel ?? 'Download PNG'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
       )}
-    </div>
+    </button>
   );
 }
+
+export interface TokenPanelPanelProps {
+  className?: string;
+  children: ReactNode;
+}
+
+function Panel({ className, children }: TokenPanelPanelProps) {
+  const { open } = useTokenPanelContext();
+  if (!open) return null;
+  return <div className={className}>{children}</div>;
+}
+
+export interface TokenPanelDescriptionProps {
+  className?: string;
+  children?: ReactNode;
+}
+
+function Description({ className, children }: TokenPanelDescriptionProps) {
+  return (
+    <p className={className}>
+      {children ?? (
+        <>
+          Guests need this token in their wall URL (<code>?t=...</code>) to trigger AI scenes.
+          Share via QR code or invite link. Empty means AI scenes always run.
+        </>
+      )}
+    </p>
+  );
+}
+
+export interface TokenPanelControlsProps {
+  className?: string;
+  children: ReactNode;
+}
+
+function Controls({ className, children }: TokenPanelControlsProps) {
+  return <div className={className}>{children}</div>;
+}
+
+export interface TokenPanelInputProps {
+  className?: string;
+  placeholder?: string;
+}
+
+function Input({ className, placeholder = '6-char token' }: TokenPanelInputProps) {
+  const { admin } = useTokenPanelContext();
+  return (
+    <input
+      type="text"
+      value={admin.input}
+      onChange={e => admin.setInput(e.target.value)}
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+}
+
+export interface TokenPanelGenerateProps {
+  className?: string;
+  children?: ReactNode;
+  length?: number;
+}
+
+function Generate({ className, children, length = 6 }: TokenPanelGenerateProps) {
+  const { admin } = useTokenPanelContext();
+  return (
+    <button
+      type="button"
+      onClick={() => admin.generate(length)}
+      className={className}
+    >
+      {children ?? 'Generate'}
+    </button>
+  );
+}
+
+export interface TokenPanelSaveProps {
+  className?: string;
+  /** Label shown when not saving. Default: "Save". */
+  children?: ReactNode;
+  /** Label shown while saving. Default: "Saving...". */
+  savingLabel?: ReactNode;
+}
+
+function Save({ className, children, savingLabel }: TokenPanelSaveProps) {
+  const { admin } = useTokenPanelContext();
+  return (
+    <button
+      type="button"
+      disabled={admin.saving}
+      onClick={admin.save}
+      className={className}
+    >
+      {admin.saving ? (savingLabel ?? 'Saving...') : (children ?? 'Save')}
+    </button>
+  );
+}
+
+export interface TokenPanelClearProps {
+  className?: string;
+  children?: ReactNode;
+}
+
+function Clear({ className, children }: TokenPanelClearProps) {
+  const { admin } = useTokenPanelContext();
+  if (!admin.currentToken) return null;
+  return (
+    <button type="button" onClick={admin.clear} className={className}>
+      {children ?? 'Clear'}
+    </button>
+  );
+}
+
+export interface TokenPanelShareSectionProps {
+  className?: string;
+  children: ReactNode;
+}
+
+function ShareSection({ className, children }: TokenPanelShareSectionProps) {
+  const { admin } = useTokenPanelContext();
+  if (!admin.currentToken || !admin.shareUrl) return null;
+  return <div className={className}>{children}</div>;
+}
+
+export interface TokenPanelShareLinkProps {
+  className?: string;
+}
+
+function ShareLink({ className }: TokenPanelShareLinkProps) {
+  const { admin } = useTokenPanelContext();
+  return (
+    <code className={className}>
+      {`${admin.shareUrl}?t=${admin.currentToken}`}
+    </code>
+  );
+}
+
+export interface TokenPanelQRProps {
+  /** Canvas size in px (controls download resolution). Default 512. */
+  size?: number;
+  /** Displayed CSS size in px. Default 160. */
+  displaySize?: number;
+  level?: 'L' | 'M' | 'Q' | 'H';
+  marginSize?: number;
+  /** Optional wrapper className (e.g. for a framed background). */
+  frameClassName?: string;
+}
+
+function QR({
+  size = 512,
+  displaySize = 160,
+  level = 'M',
+  marginSize = 4,
+  frameClassName,
+}: TokenPanelQRProps) {
+  const { admin } = useTokenPanelContext();
+  const canvas = (
+    <QRCodeCanvas
+      ref={admin.qrCanvasRef}
+      value={`${admin.shareUrl}?t=${admin.currentToken}`}
+      size={size}
+      level={level}
+      marginSize={marginSize}
+      style={{ width: displaySize, height: displaySize }}
+    />
+  );
+  if (frameClassName) {
+    return <div className={frameClassName}>{canvas}</div>;
+  }
+  return canvas;
+}
+
+export interface TokenPanelDownloadProps {
+  className?: string;
+  children?: ReactNode;
+  icon?: ReactNode;
+}
+
+function Download({ className, children, icon }: TokenPanelDownloadProps) {
+  const { admin } = useTokenPanelContext();
+  const renderedIcon = icon === undefined ? DEFAULT_DOWNLOAD_ICON : icon;
+  return (
+    <button type="button" onClick={admin.downloadQR} className={className}>
+      {renderedIcon}
+      {children ?? 'Download PNG'}
+    </button>
+  );
+}
+
+// ─── Compound export ──────────────────────────────────────────────────────────
+
+/**
+ * Owner-only admin panel for the wall access token, expressed as a compound
+ * component. The root wires up context (admin state + open/toggle); each
+ * subcomponent reads from context and accepts its own className.
+ *
+ * Standard shape:
+ *
+ * ```tsx
+ * <TokenPanel admin={tokenAdmin} open={open} onToggle={...} className="mb-3">
+ *   <TokenPanel.Toggle className="..." />
+ *   <TokenPanel.Panel className="...">
+ *     <TokenPanel.Description className="..." />
+ *     <TokenPanel.Controls className="...">
+ *       <TokenPanel.Input className="..." />
+ *       <TokenPanel.Generate className="..." />
+ *       <TokenPanel.Save className="..." />
+ *       <TokenPanel.Clear className="..." />
+ *     </TokenPanel.Controls>
+ *     <TokenPanel.ShareSection className="...">
+ *       <TokenPanel.ShareLink className="..." />
+ *       <TokenPanel.QR frameClassName="..." />
+ *       <TokenPanel.Download className="..." />
+ *     </TokenPanel.ShareSection>
+ *   </TokenPanel.Panel>
+ * </TokenPanel>
+ * ```
+ *
+ * Templates are free to re-arrange, omit, or wrap any subcomponent.
+ */
+export const TokenPanel = Object.assign(TokenPanelRoot, {
+  Toggle,
+  Panel,
+  Description,
+  Controls,
+  Input,
+  Generate,
+  Save,
+  Clear,
+  ShareSection,
+  ShareLink,
+  QR,
+  Download,
+});
