@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/bffless/components/compare/v0.4.1...v0.4.2) (2026-04-27)
+
+
+### Bug Fixes
+
+* emit CommonJS so consumers can import without .js extensions ([43c5e64](https://github.com/bffless/components/commit/43c5e6471821c41226c3e533f1835f0e8d48a667))
+
 ## [0.4.1](https://github.com/bffless/components/compare/v0.4.0...v0.4.1) (2026-04-27)
 
 
