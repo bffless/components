@@ -1,10 +1,17 @@
 {
   "name": "@bffless/components",
   "version": "0.4.0",
-  "private": true,
-  "main": "src/index.tsx",
-  "types": "src/index.tsx",
+  "description": "Hooks and headless React primitives that the BFFless site templates use under the hood — token URLs, scene rotation, photo capture, posting flows.",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm build",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
@@ -25,10 +32,23 @@
     "typescript": "^5.6.0"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/bffless/components.git"
-  }
+    "url": "git+https://github.com/bffless/components.git"
+  },
+  "keywords": [
+    "bffless",
+    "react",
+    "hooks",
+    "components",
+    "wall",
+    "guest-wall",
+    "celebration"
+  ],
+  "author": "BFFLESS",
+  "license": "O'Saasy",
+  "sideEffects": false
 }
