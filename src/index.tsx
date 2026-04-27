@@ -46,6 +46,17 @@ export type {
   SessionData,
 } from './hooks/useAdminAccess';
 
+// Headless primitives (className-pass-through; lib never imports a CSS framework)
+export { PhotoboothBanner } from './primitives/Wall/PhotoboothBanner';
+export type { PhotoboothBannerProps } from './primitives/Wall/PhotoboothBanner';
+
+export { TokenPanel } from './primitives/Wall/TokenPanel';
+export type {
+  TokenPanelProps,
+  TokenPanelClassNames,
+  TokenPanelCopy,
+} from './primitives/Wall/TokenPanel';
+
 // Helpers
 export {
   generateToken,
