@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.3](https://github.com/bffless/components/compare/v0.4.2...v0.4.3) (2026-04-27)
+
+
+### Documentation
+
+* add AGENTS.md for AI agents working on this repo ([20e45ff](https://github.com/bffless/components/commit/20e45ff623fe5a874e980bfefd1540675cc5d274))
+
 ## [0.4.2](https://github.com/bffless/components/compare/v0.4.1...v0.4.2) (2026-04-27)
 
 
