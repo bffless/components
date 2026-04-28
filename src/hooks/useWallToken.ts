@@ -9,6 +9,23 @@ export interface UseWallTokenOptions {
   isAdmin?: boolean;
   /** URL search-param key carrying the token. Defaults to 't'. */
   paramKey?: string;
+  /**
+   * Site-level AI photobooth switch. Defaults to `'token'` (legacy behaviour:
+   * `aiEnabled` flips true when the URL carries `?t=<token>`). Pass `'off'` for
+   * sites that don't want the AI scene flow at all — URL token capture is
+   * skipped and `aiEnabled` stays false even if a token sneaks into the URL.
+   * The admin token panel still renders for `isAdmin` users in either mode so
+   * an owner can pre-configure a token before flipping AI on later.
+   */
+  aiMode?: 'token' | 'off';
+  /**
+   * Runtime override for the AI photobooth switch — typically wired to
+   * `useWallSettings().wallAiEnabled`. When `false`, behaves exactly like
+   * `aiMode: 'off'` (URL token capture skipped, `aiEnabled` forced false).
+   * When `true` or omitted, the static `aiMode` controls behaviour. Lets a
+   * site flip AI on/off at runtime via the admin checkbox without a redeploy.
+   */
+  enabled?: boolean;
 }
 
 export interface WallTokenAdmin {
@@ -46,6 +63,12 @@ export function useWallToken(opts?: UseWallTokenOptions): UseWallTokenResult {
   const adminEndpoint = opts?.adminEndpoint ?? '/api/admin/wall-scene-token';
   const isAdmin = opts?.isAdmin ?? false;
   const paramKey = opts?.paramKey ?? 't';
+  const aiMode = opts?.aiMode ?? 'token';
+  const runtimeEnabled = opts?.enabled;
+  // The runtime flag short-circuits the static one. Either knob can force
+  // AI off: `enabled === false` (runtime, e.g. owner unchecked the box) or
+  // `aiMode === 'off'` (static, hardcoded by the site author).
+  const aiOff = runtimeEnabled === false || aiMode === 'off';
 
   const tokenRef = useRef<string | null>(null);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -57,9 +80,20 @@ export function useWallToken(opts?: UseWallTokenOptions): UseWallTokenResult {
   const [saving, setSaving] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
 
-  // Capture URL token once at mount and strip it from the address bar.
+  // Capture URL token once when AI is on and strip it from the address bar.
+  // Skipped when aiOff — the site has opted out of the AI photobooth flow, so
+  // a stray ?t= param in the URL must not flip aiEnabled or be retained.
+  // Note: if the runtime flag flips on AFTER mount (owner ticks the checkbox
+  // post-load) the URL token has already been replaceState'd away on initial
+  // capture, so guests need a refresh to get a fresh photobooth session —
+  // intentional, since the toggle is a rare admin action.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (aiOff) {
+      tokenRef.current = null;
+      setAiEnabled(false);
+      return;
+    }
     const params = new URLSearchParams(window.location.search);
     const t = params.get(paramKey);
     if (t) {
@@ -73,7 +107,7 @@ export function useWallToken(opts?: UseWallTokenOptions): UseWallTokenResult {
         window.location.hash;
       window.history.replaceState(null, '', newUrl);
     }
-  }, [paramKey]);
+  }, [paramKey, aiOff]);
 
   // Fetch the persisted token for the admin panel, once we know the user is admin.
   useEffect(() => {

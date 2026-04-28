@@ -5,8 +5,20 @@ export type {
   WallTokenAdmin,
 } from './useWallToken';
 
+export { useWallSettings } from './useWallSettings';
+export type {
+  UseWallSettingsOptions,
+  UseWallSettingsResult,
+} from './useWallSettings';
+
 export { useWallScenes } from './useWallScenes';
 export type { UseWallScenesOptions, UseWallScenesResult } from './useWallScenes';
+
+export { useWallPhotoCarousel } from './useWallPhotoCarousel';
+export type {
+  UseWallPhotoCarouselOptions,
+  UseWallPhotoCarouselResult,
+} from './useWallPhotoCarousel';
 
 export { useWallPosts } from './useWallPosts';
 export type { UseWallPostsOptions, UseWallPostsResult } from './useWallPosts';

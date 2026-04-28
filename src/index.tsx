@@ -6,11 +6,23 @@ export type {
   WallTokenAdmin,
 } from './hooks/useWallToken';
 
+export { useWallSettings } from './hooks/useWallSettings';
+export type {
+  UseWallSettingsOptions,
+  UseWallSettingsResult,
+} from './hooks/useWallSettings';
+
 export { useWallScenes } from './hooks/useWallScenes';
 export type {
   UseWallScenesOptions,
   UseWallScenesResult,
 } from './hooks/useWallScenes';
+
+export { useWallPhotoCarousel } from './hooks/useWallPhotoCarousel';
+export type {
+  UseWallPhotoCarouselOptions,
+  UseWallPhotoCarouselResult,
+} from './hooks/useWallPhotoCarousel';
 
 export { useWallPosts } from './hooks/useWallPosts';
 export type {
