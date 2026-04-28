@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.0](https://github.com/bffless/components/compare/v0.4.3...v0.5.0) (2026-04-28)
+
+
+### Features
+
+* make Wall AI photobooth opt-in with runtime owner toggle ([9b5c198](https://github.com/bffless/components/commit/9b5c198fdb312252789b41265cfc6dd543812983))
+
+
+### Bug Fixes
+
+* /chore: stay on patches during pre-1.0. ([5276b48](https://github.com/bffless/components/commit/5276b488e9d87b6df056b503207dd9e199ab0d6a))
+
+
+### Miscellaneous
+
+* drop bump-patch-for-minor-pre-major so feat commits bump minor ([5276b48](https://github.com/bffless/components/commit/5276b488e9d87b6df056b503207dd9e199ab0d6a))
+
 ## [0.4.3](https://github.com/bffless/components/compare/v0.4.2...v0.4.3) (2026-04-27)
 
 
