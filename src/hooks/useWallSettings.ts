@@ -51,7 +51,7 @@ export function useWallSettings(opts?: UseWallSettingsOptions): UseWallSettingsR
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch(endpoint, { credentials: 'include' });
+      const res = await fetch(endpoint, { credentials: 'include', cache: 'no-store' });
       if (!res.ok) return;
       const data: { wallAiEnabled?: boolean } = await res.json();
       setWallAiEnabledState(!!data.wallAiEnabled);
@@ -62,7 +62,7 @@ export function useWallSettings(opts?: UseWallSettingsOptions): UseWallSettingsR
 
   useEffect(() => {
     let cancelled = false;
-    fetch(endpoint, { credentials: 'include' })
+    fetch(endpoint, { credentials: 'include', cache: 'no-store' })
       .then(res => (res.ok ? res.json() : null))
       .then((data: { wallAiEnabled?: boolean } | null) => {
         if (cancelled) return;

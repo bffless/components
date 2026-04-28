@@ -42,6 +42,12 @@ export type {
   UseSceneBackgroundsResult,
 } from './useSceneBackgrounds';
 
+export { useSceneBackgroundsPanel } from './useSceneBackgroundsPanel';
+export type {
+  UseSceneBackgroundsPanelOptions,
+  SceneBackgroundsPanelState,
+} from './useSceneBackgroundsPanel';
+
 export { useAdminAccess } from './useAdminAccess';
 export type {
   UseAdminAccessOptions,

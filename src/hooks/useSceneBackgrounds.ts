@@ -26,7 +26,7 @@ export function useSceneBackgrounds(opts?: UseSceneBackgroundsOptions): UseScene
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch(endpoint);
+      const res = await fetch(endpoint, { cache: 'no-store' });
       const data: { backgrounds?: SceneBackground[] } = await res.json();
       setBackgrounds(data.backgrounds ?? []);
     } catch {

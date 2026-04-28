@@ -31,7 +31,7 @@ export function useWallPosts(opts?: UseWallPostsOptions): UseWallPostsResult {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch(postsEndpoint);
+      const res = await fetch(postsEndpoint, { cache: 'no-store' });
       const data: { posts?: WallPost[] } = await res.json();
       setPosts(data.posts ?? []);
     } catch {

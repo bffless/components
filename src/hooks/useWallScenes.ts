@@ -70,7 +70,7 @@ export function useWallScenes(opts?: UseWallScenesOptions): UseWallScenesResult 
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch(scenesEndpoint);
+      const res = await fetch(scenesEndpoint, { cache: 'no-store' });
       const data: { scenes?: WallScene[] } = await res.json();
       const newScenes = data.scenes ?? [];
       setScenes(newScenes);

@@ -49,6 +49,12 @@ export type {
   UseSceneBackgroundsResult,
 } from './hooks/useSceneBackgrounds';
 
+export { useSceneBackgroundsPanel } from './hooks/useSceneBackgroundsPanel';
+export type {
+  UseSceneBackgroundsPanelOptions,
+  SceneBackgroundsPanelState,
+} from './hooks/useSceneBackgroundsPanel';
+
 export { useAdminAccess } from './hooks/useAdminAccess';
 export type {
   UseAdminAccessOptions,
@@ -78,6 +84,18 @@ export type {
   TokenPanelQRProps,
   TokenPanelDownloadProps,
 } from './primitives/Wall/TokenPanel';
+
+export { SceneBackgroundsPanel } from './primitives/Wall/SceneBackgroundsPanel';
+export type {
+  SceneBackgroundsPanelProps,
+  SceneBackgroundsPanelAddFormProps,
+  SceneBackgroundsPanelTitleProps,
+  SceneBackgroundsPanelFileInputProps,
+  SceneBackgroundsPanelPromptProps,
+  SceneBackgroundsPanelSubmitProps,
+  SceneBackgroundsPanelStatusProps,
+  SceneBackgroundsPanelErrorProps,
+} from './primitives/Wall/SceneBackgroundsPanel';
 
 // Helpers
 export {
