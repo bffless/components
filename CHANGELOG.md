@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/bffless/components/compare/v0.5.0...v0.6.0) (2026-04-28)
+
+
+### Features
+
+* add useSceneBackgroundsPanel + SceneBackgroundsPanel primitive, fix stale-cache reads ([39f5f2b](https://github.com/bffless/components/commit/39f5f2b78ea2ddd13e88685d01b7623a7db4d2b5))
+
 ## [0.5.0](https://github.com/bffless/components/compare/v0.4.3...v0.5.0) (2026-04-28)
 
 
