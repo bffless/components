@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.0](https://github.com/bffless/components/compare/v0.8.1...v0.9.0) (2026-05-02)
+
+
+### Features
+
+* **AuthDialog:** add PoweredBy + AccountExistsHint for identity-hub UX ([9619312](https://github.com/bffless/components/commit/96193125c0ad628a06dbf508422a94457fdd30ea))
+* **AuthDialog:** PoweredBy + AccountExistsHint for identity-hub UX ([64353e3](https://github.com/bffless/components/commit/64353e33b853f0126da4dd720fca1b0251416d7f))
+
 ## [0.8.1](https://github.com/bffless/components/compare/v0.8.0...v0.8.1) (2026-05-02)
 
 
