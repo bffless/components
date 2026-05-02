@@ -12,7 +12,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import type { UseAuthResult } from '../../hooks/useAuth';
-import type { AuthMode } from '../../types/auth';
+import { canSignup as resolveCanSignup, type AuthMode } from '../../types/auth';
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
@@ -341,6 +341,32 @@ export interface AuthDialogSignUpFormProps extends FormPropsBase {
 function SignUpForm(props: AuthDialogSignUpFormProps) {
   const { auth } = useDialogContext();
   if (!shouldShowFor(auth.mode, 'signup')) return null;
+
+  // If the site doesn't accept signups, render a disabled panel instead of
+  // the form. Covers two cases: (1) consumer template still calls
+  // auth.setMode('signup') somewhere we can't intercept, (2) user lands on
+  // signup mode via a deep link / URL state.
+  if (!resolveCanSignup(auth.loginMethods)) {
+    return (
+      <div className={props.className} role="status">
+        <p>This site doesn't accept new signups.</p>
+        <p>
+          If you already have an account,{' '}
+          <button
+            type="button"
+            onClick={() => {
+              auth.clearError();
+              auth.setMode('signin');
+            }}
+          >
+            sign in
+          </button>
+          .
+        </p>
+      </div>
+    );
+  }
+
   const minLen = props.minPasswordLength ?? 8;
 
   return (
@@ -526,6 +552,11 @@ export interface AuthDialogModeSwitchProps {
 function ModeSwitch({ to, className, children, visibleWhen }: AuthDialogModeSwitchProps) {
   const { auth } = useDialogContext();
   if (visibleWhen && !visibleWhen.includes(auth.mode)) return null;
+  // Hide "switch to sign up" links when the site doesn't accept new signups.
+  // Workspace-level kill switch OR per-project allowPublicSignup=false collapses
+  // both to canSignup=false here, so the consumer template doesn't need to
+  // know which gate fired.
+  if (to === 'signup' && !resolveCanSignup(auth.loginMethods)) return null;
   return (
     <button
       type="button"
