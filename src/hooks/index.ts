@@ -56,3 +56,6 @@ export type {
   SessionUser,
   SessionData,
 } from './useAdminAccess';
+
+export { useAuth } from './useAuth';
+export type { UseAuthOptions, UseAuthResult } from './useAuth';
