@@ -153,6 +153,12 @@ export async function signUp(
     if (data?.status === 'EMAIL_ALREADY_EXISTS_ERROR') {
       throw new AuthClientError('email_exists', 'An account with that email already exists.');
     }
+    if (data?.status === 'PUBLIC_SIGNUP_DISABLED') {
+      throw new AuthClientError(
+        'signup_disabled',
+        "This site doesn't accept new signups. If you already have an account, sign in.",
+      );
+    }
     const user = normalizeUser(data?.user);
     if (!user) throw new AuthClientError('unknown', 'Unexpected sign-up response.');
     return {
@@ -165,6 +171,14 @@ export async function signUp(
   const msg = data?.message || '';
   if (/already exists/i.test(msg)) {
     throw new AuthClientError('email_exists', 'An account with that email already exists.');
+  }
+  // Project-level gate ("Public signups are not enabled for this site...") —
+  // check before the workspace-level `registration_disabled` heuristic.
+  if (/public signups (are not|aren'?t) enabled/i.test(msg)) {
+    throw new AuthClientError(
+      'signup_disabled',
+      "This site doesn't accept new signups. If you already have an account, sign in.",
+    );
   }
   if (/registration/i.test(msg) && /(disabled|not available)/i.test(msg)) {
     throw new AuthClientError('registration_disabled', msg);
@@ -298,6 +312,20 @@ export async function signOut(opts: AuthFetchOptions): Promise<void> {
   }
 }
 
+/**
+ * Conservative LoginMethods value used when the network call fails or the
+ * endpoint isn't available. Defaults are: password on, no google, signup
+ * allowed at the workspace level (so older backends without the namespaced
+ * shape don't accidentally hide the Sign up tab).
+ */
+function defaultLoginMethods(): LoginMethods {
+  return {
+    hasPassword: true,
+    hasGoogle: false,
+    workspace: { hasPassword: true, hasGoogle: false, allowSignup: true },
+  };
+}
+
 export async function fetchLoginMethods(opts: AuthFetchOptions): Promise<LoginMethods> {
   let res: Response;
   try {
@@ -307,13 +335,28 @@ export async function fetchLoginMethods(opts: AuthFetchOptions): Promise<LoginMe
       signal: opts.signal,
     });
   } catch {
-    return { hasPassword: true, hasGoogle: false };
+    return defaultLoginMethods();
   }
-  if (!res.ok) return { hasPassword: true, hasGoogle: false };
+  if (!res.ok) return defaultLoginMethods();
   const data = await readJson(res);
+
+  // New backends return a `workspace` (and optional `project`) namespace.
+  // Older backends return only the flat `{ hasPassword, hasGoogle }` shape;
+  // synthesize the namespace from those values so downstream code can read
+  // from `workspace.*` unconditionally.
+  const hasPassword = data?.hasPassword ?? data?.workspace?.hasPassword ?? true;
+  const hasGoogle = !!(data?.hasGoogle ?? data?.workspace?.hasGoogle);
+  const workspace = data?.workspace ?? {
+    hasPassword,
+    hasGoogle,
+    allowSignup: true, // Older backends don't surface the gate; assume allowed.
+  };
+
   return {
-    hasPassword: data?.hasPassword ?? true,
-    hasGoogle: !!data?.hasGoogle,
+    hasPassword,
+    hasGoogle,
+    workspace,
+    ...(data?.project ? { project: data.project } : {}),
   };
 }
 
