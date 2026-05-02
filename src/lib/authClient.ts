@@ -72,24 +72,70 @@ export interface AuthFetchOptions {
 }
 
 /**
- * GET ${basePath}/session — returns the current user (or null if not signed in).
+ * Surface-specific refresh endpoint. Both backends mint short-lived access
+ * tokens that need to be exchanged for a new one when expired.
  *
- * Both base paths return shapes the client can normalize:
- * - `/api/auth/session` (SessionAuthGuard): returns `{ user: {...} }` or 401
- * - `/_bffless/auth/session`: returns `{ authenticated, user }`
+ * - `/api/auth` (SuperTokens): `POST /api/auth/session/refresh` — handled
+ *   directly by the SuperTokens middleware, which validates the
+ *   `sRefreshToken` cookie and rotates `sAccessToken`.
+ * - `/_bffless/auth` (custom-domain JWT): `POST /_bffless/auth/refresh` —
+ *   `CustomDomainAuthController.refresh` validates the `bffless_refresh`
+ *   cookie and re-issues `bffless_access`.
  */
-export async function fetchSession(opts: AuthFetchOptions): Promise<SessionResult> {
-  let res: Response;
+function refreshUrlFor(basePath: string): string {
+  return basePath === '/api/auth' ? `${basePath}/session/refresh` : `${basePath}/refresh`;
+}
+
+async function attemptSessionRefresh(opts: AuthFetchOptions): Promise<boolean> {
   try {
-    res = await fetch(`${opts.basePath}/session`, {
+    const res = await fetch(refreshUrlFor(opts.basePath), {
+      method: 'POST',
+      credentials: 'include',
+      signal: opts.signal,
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchSessionOnce(opts: AuthFetchOptions): Promise<Response | null> {
+  try {
+    return await fetch(`${opts.basePath}/session`, {
       method: 'GET',
       credentials: 'include',
       signal: opts.signal,
     });
   } catch {
-    return { user: null };
+    return null;
   }
-  if (res.status === 401) return { user: null };
+}
+
+/**
+ * GET ${basePath}/session — returns the current user (or null if not signed in).
+ *
+ * Both base paths return shapes the client can normalize:
+ * - `/api/auth/session` (SessionAuthGuard): returns `{ user: {...} }` or 401
+ * - `/_bffless/auth/session`: returns `{ authenticated, user }`
+ *
+ * On a 401 we attempt one silent refresh (cookie rotation, no body) and retry.
+ * The custom-domain backend specifically signals this case with
+ * `{ message: 'try refresh token' }`; the SuperTokens path returns plain 401s
+ * but its refresh endpoint is idempotent enough that we can always try.
+ * If the refresh itself returns non-OK we treat the user as signed-out
+ * without bubbling an error — same as the no-cookie case.
+ */
+export async function fetchSession(opts: AuthFetchOptions): Promise<SessionResult> {
+  let res = await fetchSessionOnce(opts);
+  if (!res) return { user: null };
+
+  if (res.status === 401) {
+    const refreshed = await attemptSessionRefresh(opts);
+    if (!refreshed) return { user: null };
+    res = await fetchSessionOnce(opts);
+    if (!res) return { user: null };
+  }
+
   if (!res.ok) return { user: null };
   const data = await readJson(res);
   if (!data) return { user: null };
