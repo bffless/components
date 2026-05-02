@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0](https://github.com/bffless/components/compare/v0.7.0...v0.8.0) (2026-05-02)
+
+
+### Features
+
+* **AuthDialog:** hide Sign up tab + render disabled panel when signup not allowed ([de93eec](https://github.com/bffless/components/commit/de93eece2193c157e26e26318d486fc4901ef429))
+* **AuthDialog:** hide Sign up tab when site doesn't accept signups ([85d3271](https://github.com/bffless/components/commit/85d32717f04055d87cd7aeebb69bf72bc84b1d81))
+
 ## [0.7.0](https://github.com/bffless/components/compare/v0.6.0...v0.7.0) (2026-05-02)
 
 
