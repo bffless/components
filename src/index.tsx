@@ -64,6 +64,9 @@ export type {
   SessionData,
 } from './hooks/useAdminAccess';
 
+export { useAuth } from './hooks/useAuth';
+export type { UseAuthOptions, UseAuthResult } from './hooks/useAuth';
+
 // Headless primitives (className-pass-through; lib never imports a CSS framework)
 export { PhotoboothBanner } from './primitives/Wall/PhotoboothBanner';
 export type { PhotoboothBannerProps } from './primitives/Wall/PhotoboothBanner';
@@ -97,6 +100,24 @@ export type {
   SceneBackgroundsPanelErrorProps,
 } from './primitives/Wall/SceneBackgroundsPanel';
 
+export { AuthDialog } from './primitives/Auth/AuthDialog';
+export type {
+  AuthDialogProps,
+  AuthDialogOverlayProps,
+  AuthDialogPanelProps,
+  AuthDialogHeaderProps,
+  AuthDialogTitleProps,
+  AuthDialogCloseProps,
+  AuthDialogErrorProps,
+  AuthDialogSignInFormProps,
+  AuthDialogSignUpFormProps,
+  AuthDialogForgotPasswordFormProps,
+  AuthDialogResetPasswordFormProps,
+  AuthDialogVerifyEmailNoticeProps,
+  AuthDialogModeSwitchProps,
+  AuthDialogForgotPasswordLinkProps,
+} from './primitives/Auth/AuthDialog';
+
 // Helpers
 export {
   generateToken,
@@ -108,3 +129,17 @@ export {
 
 // Types
 export type { WallPost, WallScene, SceneBackground } from './types/wall';
+
+export { resolveAuthBasePath, AuthClientError } from './lib/authClient';
+export type {
+  AuthUser,
+  AuthMode,
+  AuthError,
+  AuthErrorCode,
+  LoginMethods,
+  SignInResult,
+  SignUpResult,
+  ResetPasswordResult,
+  VerifyEmailResult,
+  SessionResult,
+} from './types/auth';
