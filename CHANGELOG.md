@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.1](https://github.com/bffless/components/compare/v0.8.0...v0.8.1) (2026-05-02)
+
+
+### Bug Fixes
+
+* **auth:** retry session probe on 401 via per-surface refresh endpoint ([5cc667d](https://github.com/bffless/components/commit/5cc667d49ce3b597f33d70e7ec1927f9ef1b6eaa))
+* **auth:** retry session probe on 401 via per-surface refresh endpoint ([a95a0b4](https://github.com/bffless/components/commit/a95a0b4add155bd0f55452ee056b0e0618681b90))
+
 ## [0.8.0](https://github.com/bffless/components/compare/v0.7.0...v0.8.0) (2026-05-02)
 
 
