@@ -116,6 +116,8 @@ export type {
   AuthDialogVerifyEmailNoticeProps,
   AuthDialogModeSwitchProps,
   AuthDialogForgotPasswordLinkProps,
+  AuthDialogPoweredByProps,
+  AuthDialogAccountExistsHintProps,
 } from './primitives/Auth/AuthDialog';
 
 // Helpers

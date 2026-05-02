@@ -571,6 +571,110 @@ function ModeSwitch({ to, className, children, visibleWhen }: AuthDialogModeSwit
   );
 }
 
+// ─── Identity-provider branding ───────────────────────────────────────────────
+
+export interface AuthDialogPoweredByProps {
+  className?: string;
+  /**
+   * The URL of the central account hub. Defaults to
+   * `https://admin.sites.bffless.app/account`. Override for self-hosted CE
+   * deployments or staging environments.
+   */
+  href?: string;
+  /**
+   * Override the rendered link text. Defaults to
+   * `"Powered by BFFless Auth · Manage account"`.
+   */
+  children?: ReactNode;
+}
+
+/**
+ * Subtle footer link communicating the identity-provider model: "this site's
+ * sign-in is BFFless Auth; you can manage credentials and see all your sites
+ * at one central place." Pair it with `<AuthDialog.Panel>`.
+ *
+ * Rendered as a normal anchor so it works with any styling system. Opens in
+ * a new tab so the consumer site doesn't lose context.
+ */
+function PoweredBy({ className, href, children }: AuthDialogPoweredByProps) {
+  return (
+    <a
+      href={href ?? 'https://admin.sites.bffless.app/account'}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={className}
+    >
+      {children ?? 'Powered by BFFless Auth · Manage account'}
+    </a>
+  );
+}
+
+// ─── Smart-error UX: account already exists ──────────────────────────────────
+
+export interface AuthDialogAccountExistsHintProps {
+  className?: string;
+  /**
+   * Render slot. Receives the helper to switch to sign-in mode (which also
+   * clears the current error). Use this to wire your own copy / button:
+   *
+   * ```tsx
+   * <AuthDialog.AccountExistsHint>
+   *   {(switchToSignIn) => (
+   *     <p>
+   *       That email is already registered. <button onClick={switchToSignIn}>Sign in</button> instead.
+   *     </p>
+   *   )}
+   * </AuthDialog.AccountExistsHint>
+   * ```
+   */
+  children?: (switchToSignIn: () => void) => ReactNode;
+  /** Class for the inline "Sign in instead" button in the default copy. */
+  switchClassName?: string;
+}
+
+/**
+ * Inline helper that detects the `email_exists` error coming back from
+ * `<AuthDialog.SignUpForm>` and offers to switch to the Sign-in tab. Renders
+ * nothing in any other state — safe to drop into the panel unconditionally.
+ *
+ * Place it near `<AuthDialog.Error>` (or replace the generic error display
+ * for the email-exists path):
+ *
+ * ```tsx
+ * <AuthDialog.SignUpForm />
+ * <AuthDialog.AccountExistsHint />
+ * <AuthDialog.Error />
+ * ```
+ *
+ * The component decides when to show; the consumer keeps full control over
+ * styling and copy via the optional render prop.
+ */
+function AccountExistsHint({
+  className,
+  children,
+  switchClassName,
+}: AuthDialogAccountExistsHintProps) {
+  const { auth } = useDialogContext();
+  if (auth.mode !== 'signup') return null;
+  if (auth.error?.code !== 'email_exists') return null;
+
+  const switchToSignIn = () => {
+    auth.clearError();
+    auth.setMode('signin');
+  };
+
+  if (children) return <>{children(switchToSignIn)}</>;
+
+  return (
+    <div className={className} role="alert">
+      An account with this email already exists.{' '}
+      <button type="button" onClick={switchToSignIn} className={switchClassName}>
+        Sign in instead
+      </button>
+    </div>
+  );
+}
+
 export interface AuthDialogForgotPasswordLinkProps {
   className?: string;
   children?: ReactNode;
@@ -680,4 +784,6 @@ export const AuthDialog = Object.assign(AuthDialogRoot, {
   VerifyEmailNotice,
   ModeSwitch,
   ForgotPasswordLink,
+  PoweredBy,
+  AccountExistsHint,
 });
