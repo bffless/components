@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/bffless/components/compare/v0.6.0...v0.7.0) (2026-05-02)
+
+
+### Features
+
+* AuthDialog + useAuth (in-page auth) — and tsup dual ESM+CJS build ([7e0ef02](https://github.com/bffless/components/commit/7e0ef02c2d53dec0bf0750a5d39917d860d9cdf4))
+
 ## [0.6.0](https://github.com/bffless/components/compare/v0.5.0...v0.6.0) (2026-04-28)
 
 
