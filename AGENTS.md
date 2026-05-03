@@ -314,6 +314,75 @@ version on npm.
 
 ---
 
+## Auth (in-page sign-in)
+
+Shipped in v0.7.0. The `useAuth` hook + `AuthDialog` compound primitive replace
+the old "redirect to admin.sites.bffless.app/login" dance with an in-page
+drawer that signs visitors into the consumer site. AuthDialog uses the same
+className-pass-through compound shape as TokenPanel — every subcomponent
+accepts its own className, layout is controlled by the consumer.
+
+### Pieces
+
+- **Hook**: `useAuth({ basePath?, onAuthenticated? })` — returns
+  `{ user, ready, loading, error, mode, setMode, loginMethods, signIn, signUp,
+  forgotPassword, resetPassword, verifyEmail, resendVerification, signOut,
+  refresh, clearError, basePath, resetToken, verifyToken, pendingVerifyEmail }`.
+  Auto-detects the auth base path by hostname (`/api/auth` on workspace
+  subdomains, `/_bffless/auth` on custom domains) and auto-captures
+  `?bffless_reset=` / `?bffless_verify=` URL tokens.
+- **Primitive**: `AuthDialog` root + subcomponents `Overlay`, `Panel`,
+  `Header`, `Title`, `Close`, `Error`, `AccountExistsHint`, `SignInForm`,
+  `SignUpForm`, `ForgotPasswordForm`, `ResetPasswordForm`, `VerifyEmailNotice`,
+  `ModeSwitch`, `ForgotPasswordLink`, `PoweredBy`. ESC closes; the dialog
+  portals to `document.body` by default.
+
+### Canonical consumer pattern
+
+The reference integration is
+`~/projects/sahp/sites-bffless-app-demos/realestate-modern-realestate-modern/src/components/AuthDialogIsland.tsx`.
+It's a single React island that owns `useAuth`, renders a "Sign in" /
+"Sign out" toggle button, and mounts the `AuthDialog` drawer. Templates copy
+this file, restyle the className strings to their palette, and mount the
+island in `Layout.astro`'s nav with `client:idle`. Don't try to render
+AuthDialog from Astro static markup — it needs the hook for state.
+
+### Signup gating (workspace × project)
+
+`useAuth().loginMethods` returns the workspace-level `allowSignup` flag and
+(when the workspace has `REQUIRE_PROJECT_MEMBERSHIP=true`) the per-project
+`allowSignup` flag. The helper `canSignup(loginMethods)` resolves both into
+one boolean — AuthDialog already reads this and hides the Sign up tab and the
+"New here? Create an account" ModeSwitch when it's false. Consumers don't
+have to gate manually; just trust the dialog.
+
+When wiring a new template's canonical demo on the `bffless-sites` workspace
+(which has `REQUIRE_PROJECT_MEMBERSHIP=true`), you'll typically want the demo
+project to have `allowPublicSignup=true` so visitors can self-register.
+Otherwise signup will silently disappear from the dialog and the demo will
+look broken. Set it via `mcp__bffless-sites__update_project` after Step 9 of
+the create-template flow.
+
+### Backend dependencies
+
+- **Per-site (each consumer's project)**: `auth.json` proxy rule set
+  forwarding `/api/auth/*` to the BFFless internal SuperTokens handler. Every
+  template ships this in `.bffless/proxy-rules/auth.json` — copy verbatim.
+  This single proxy rule is enough; no schemas or pipelines are needed.
+- **Workspace-level**: `REQUIRE_PROJECT_MEMBERSHIP` feature flag (controls
+  whether membership is checked at signin/signup/session). On `bffless-sites`
+  it's `true`; on a single-owner workspace it's `false` and AuthDialog Just
+  Works without a per-project allowSignup toggle.
+- **Per-project**: `projects.allowPublicSignup` boolean. Only consulted when
+  the workspace flag is on. Default `false` (invitation-only). Set to `true`
+  on demos and on consumer sites that want self-service signup.
+
+Don't expose the workspace/project flag mechanics to end users in marketing
+copy — these are operator concerns. The dialog presents the right tabs
+automatically.
+
+---
+
 ## Backend dependencies (important!)
 
 Components in this lib usually call BFFless backend pipelines that **must
