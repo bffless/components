@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.1](https://github.com/bffless/components/compare/v0.9.0...v0.9.1) (2026-05-03)
+
+
+### Documentation
+
+* **AGENTS:** document Auth (useAuth + AuthDialog) consumer pattern ([2cd202e](https://github.com/bffless/components/commit/2cd202e774094856988572db1d78e81814c1b7f7))
+* **AGENTS:** document Auth (useAuth + AuthDialog) consumer pattern ([c6ed307](https://github.com/bffless/components/commit/c6ed3071e77a579fa4f5959b803c6ffc3ce27b16))
+
 ## [0.9.0](https://github.com/bffless/components/compare/v0.8.1...v0.9.0) (2026-05-02)
 
 
