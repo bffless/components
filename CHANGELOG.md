@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.0](https://github.com/bffless/components/compare/v0.9.1...v0.10.0) (2026-05-04)
+
+
+### Features
+
+* **scheduling:** add booking flow primitives and admin hooks ([f99ea64](https://github.com/bffless/components/commit/f99ea644adf686b99db42ddde06ba401b8748ac8))
+* **scheduling:** booking flow primitives + admin hooks (Phase D) ([a6ee8cb](https://github.com/bffless/components/commit/a6ee8cb2078dfbd58a7062ce4cd2c82815561ec5))
+
 ## [0.9.1](https://github.com/bffless/components/compare/v0.9.0...v0.9.1) (2026-05-03)
 
 
