@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.1](https://github.com/bffless/components/compare/v0.10.0...v0.10.1) (2026-05-04)
+
+
+### Bug Fixes
+
+* **scheduling:** loadAvailability + submit no longer silently no-op ([69ad532](https://github.com/bffless/components/commit/69ad532079a6d7674c0418bca3bfd2d11ed45642))
+* **scheduling:** loadAvailability + submit no longer silently no-op ([0f05383](https://github.com/bffless/components/commit/0f0538341ea41f02352fd6493da68978c4e01a43))
+
 ## [0.10.0](https://github.com/bffless/components/compare/v0.9.1...v0.10.0) (2026-05-04)
 
 
