@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.2](https://github.com/bffless/components/compare/v0.10.1...v0.10.2) (2026-05-04)
+
+
+### Bug Fixes
+
+* **scheduling-admin:** underscore paths + tolerate missing google calendars endpoint ([823efb1](https://github.com/bffless/components/commit/823efb1a363f19d49683ca2e54bc77bcf6aeead1))
+* **scheduling-admin:** underscore paths + tolerate missing google calendars endpoint ([45ab825](https://github.com/bffless/components/commit/45ab82590fccc02545ff20d23b8f6bc6fa41eaaf))
+
 ## [0.10.1](https://github.com/bffless/components/compare/v0.10.0...v0.10.1) (2026-05-04)
 
 
