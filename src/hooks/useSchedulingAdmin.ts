@@ -134,6 +134,9 @@ function useCrudResource<T extends AdminEntity>(
   );
 
   // Optimistic update: apply the patch locally, send the request, revert on error.
+  // Per the Phase C-2 pipeline shape, PATCH /admin/<collection> reads the
+  // record id from the request body (form_handler), not the URL path. Putting
+  // the id in the path 404s — there's no per-id route.
   const update = useCallback(
     async (id: string, patch: Partial<T>): Promise<T | null> => {
       setError(null);
@@ -144,8 +147,8 @@ function useCrudResource<T extends AdminEntity>(
       try {
         const data = await schedulingPatch<{ record?: T } & Record<string, unknown>>(
           basePath,
-          `/admin/${collection}/${id}`,
-          patch,
+          `/admin/${collection}`,
+          { id, ...patch },
         );
         const updated = (data?.record ?? (data as unknown as T)) as T;
         if (updated && updated.id) {
@@ -169,7 +172,9 @@ function useCrudResource<T extends AdminEntity>(
       const snapshot = list;
       setList((prev) => prev.filter((row) => row.id !== id));
       try {
-        await schedulingDelete(basePath, `/admin/${collection}/${id}`);
+        // Same shape as update: pipeline reads id from the request body,
+        // not the URL path.
+        await schedulingDelete(basePath, `/admin/${collection}`, { id });
         return true;
       } catch (err) {
         setList(snapshot);
