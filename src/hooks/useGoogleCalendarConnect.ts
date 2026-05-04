@@ -92,7 +92,11 @@ export function useGoogleCalendarConnect(
         basePath,
         calendarsPath,
         undefined,
-        { treat401AsEmpty: true },
+        // 401 = not connected; 404 = no per-site endpoint at all (Google
+        // managed exclusively in CE Settings — common when consumers pass
+        // externalSetupUrl and never provision a per-site calendars pipeline).
+        // Either way: render the disconnected card, don't throw.
+        { treat401AsEmpty: true, treat404AsEmpty: true },
       );
       if (!data) {
         setStatus('disconnected');

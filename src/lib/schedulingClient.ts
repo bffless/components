@@ -46,6 +46,10 @@ interface RequestOptions {
   // "not connected" and the caller wants a structured outcome rather than
   // an error. The default throws on any non-2xx.
   treat401AsEmpty?: boolean;
+  // Same idea, but for endpoints that may not exist as per-site pipelines
+  // (e.g. when Google Calendar is managed in CE Settings only). 404 then
+  // means "not configured here," not an error.
+  treat404AsEmpty?: boolean;
 }
 
 async function request<T>(
@@ -68,6 +72,9 @@ async function request<T>(
   }
 
   if (res.status === 401 && opts.treat401AsEmpty) {
+    return null as T;
+  }
+  if (res.status === 404 && opts.treat404AsEmpty) {
     return null as T;
   }
 
