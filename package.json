@@ -1,6 +1,6 @@
 {
   "name": "@bffless/components",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "description": "Hooks and headless React primitives that the BFFless site templates use under the hood — token URLs, scene rotation, photo capture, posting flows.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

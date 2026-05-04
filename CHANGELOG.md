@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.3](https://github.com/bffless/components/compare/v0.10.2...v0.10.3) (2026-05-04)
+
+
+### Bug Fixes
+
+* **scheduling-admin:** PATCH/DELETE put record id in body, not URL path ([cbe75fb](https://github.com/bffless/components/commit/cbe75fb6d8a042a01735772db0493a9b56b117f8))
+* **scheduling-admin:** PATCH/DELETE put record id in body, not URL path ([ad68159](https://github.com/bffless/components/commit/ad6815922d70f09b22ca5b96a0e49813416ed00b))
+
 ## [0.10.2](https://github.com/bffless/components/compare/v0.10.1...v0.10.2) (2026-05-04)
 
 
