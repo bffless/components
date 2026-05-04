@@ -32,6 +32,14 @@ export interface UseSchedulingOptions {
    * all eligible resources.
    */
   allowAnyResource?: boolean;
+  /**
+   * When the resources list for a chosen service has exactly one entry, skip
+   * the resource picker and go straight to the date/time step. Defaults to
+   * false — surprising-skip is bad UX, and the picker still adds a useful
+   * confirmation step ("yes, this stylist") even when there's only one.
+   * Templates that genuinely want the skip can opt back in.
+   */
+  autoSkipSingleResource?: boolean;
 }
 
 export interface UseSchedulingResult {
@@ -86,6 +94,12 @@ export function useScheduling(opts: UseSchedulingOptions = {}): UseSchedulingRes
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Track the latest committed state in a ref so async ops (loadAvailability,
+  // submit) can read it synchronously without depending on useState's queued
+  // updater pattern, which doesn't run until the next render.
+  const stateRef = useRef<SchedulingState>(state);
+  stateRef.current = state;
+
   // Snapshot the latest onConfirmed so callers don't have to memoize it.
   const onConfirmedRef = useRef(opts.onConfirmed);
   onConfirmedRef.current = opts.onConfirmed;
@@ -134,6 +148,7 @@ export function useScheduling(opts: UseSchedulingOptions = {}): UseSchedulingRes
     [basePath],
   );
 
+  const autoSkipSingleResource = !!opts.autoSkipSingleResource;
   const pickService = useCallback(
     async (service: SchedulingService) => {
       setError(null);
@@ -142,9 +157,10 @@ export function useScheduling(opts: UseSchedulingOptions = {}): UseSchedulingRes
       setLoading(true);
       try {
         const list = await loadResourcesForService(service.id);
-        // UX win: if there's only one viable resource, auto-pick it so the
-        // customer doesn't see a single-card "picker".
-        if (list.length === 1) {
+        // Optional UX shortcut: if there's only one viable resource, skip the
+        // resource picker. Off by default — the explicit confirmation step is
+        // usually clearer than a surprising auto-advance.
+        if (autoSkipSingleResource && list.length === 1) {
           setState({
             status: 'resource_selected',
             service,
@@ -157,7 +173,7 @@ export function useScheduling(opts: UseSchedulingOptions = {}): UseSchedulingRes
         setLoading(false);
       }
     },
-    [loadResourcesForService, setErr],
+    [loadResourcesForService, setErr, autoSkipSingleResource],
   );
 
   const pickResource = useCallback(
@@ -184,15 +200,18 @@ export function useScheduling(opts: UseSchedulingOptions = {}): UseSchedulingRes
       setError(null);
       setLoading(true);
       try {
-        // Read the latest state via setState callback — we need service +
-        // resource without depending on stale closure values.
-        let serviceId: string | undefined;
-        let resourceId: string | undefined;
-        setState((prev) => {
-          if ('service' in prev && prev.service) serviceId = prev.service.id;
-          if ('resource' in prev && prev.resource) resourceId = prev.resource.id;
-          return prev;
-        });
+        // Read the latest committed state from the ref. setState updaters
+        // run during the next render, so the older "let serviceId; setState
+        // ((prev) => { serviceId = prev... })" pattern always saw undefined.
+        const current = stateRef.current;
+        const serviceId =
+          'service' in current && current.service
+            ? current.service.id
+            : undefined;
+        const resourceId =
+          'resource' in current && current.resource
+            ? current.resource.id
+            : undefined;
         if (!serviceId) {
           setError('Pick a service before loading availability.');
           return;
@@ -253,26 +272,24 @@ export function useScheduling(opts: UseSchedulingOptions = {}): UseSchedulingRes
   const submit = useCallback(async () => {
     if (submittingRef.current) return;
 
-    let payloadState:
-      | Extract<SchedulingState, { status: 'details_filled' }>
-      | null = null;
-    setState((prev) => {
-      if (prev.status === 'details_filled') {
-        payloadState = prev;
-        return {
-          status: 'submitting',
-          service: prev.service,
-          resource: prev.resource,
-          slot: prev.slot,
-          details: prev.details,
-        };
-      }
-      return prev;
-    });
-    if (!payloadState) {
+    // Read latest committed state from the ref. The previous
+    // "setState((prev) => { payloadState = prev; ... })" pattern captured an
+    // updater into React's queue, so payloadState was always null until the
+    // next render — submit silently no-op'd. Use the ref + an explicit
+    // setState for the status transition.
+    const current = stateRef.current;
+    if (current.status !== 'details_filled') {
       setError('Fill in your details before submitting.');
       return;
     }
+    const payloadState = current;
+    setState({
+      status: 'submitting',
+      service: payloadState.service,
+      resource: payloadState.resource,
+      slot: payloadState.slot,
+      details: payloadState.details,
+    });
 
     submittingRef.current = true;
     setError(null);
