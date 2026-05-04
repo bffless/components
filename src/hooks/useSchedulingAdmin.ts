@@ -267,23 +267,27 @@ export function useSchedulingAdmin(
     responseKey: 'resources',
     initialLoad,
   });
+  // The provisioned pipelines (per Phase C-2) live at the underscore paths
+  // matching the schema names: scheduling_resource_service /
+  // scheduling_working_hours / scheduling_time_off. The hook previously
+  // hyphenated these, which 404'd against every real deployment.
   const resourceServices = useCrudResource<
     SchedulingResourceServiceLink & { id: string }
   >({
     basePath,
-    collection: 'resource-services',
+    collection: 'resource_services',
     responseKey: 'resource_services',
     initialLoad,
   });
   const workingHours = useCrudResource<SchedulingWorkingHours>({
     basePath,
-    collection: 'working-hours',
+    collection: 'working_hours',
     responseKey: 'working_hours',
     initialLoad,
   });
   const timeOff = useCrudResource<SchedulingTimeOff>({
     basePath,
-    collection: 'time-off',
+    collection: 'time_off',
     responseKey: 'time_off',
     initialLoad,
   });
