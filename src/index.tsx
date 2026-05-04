@@ -67,6 +67,27 @@ export type {
 export { useAuth } from './hooks/useAuth';
 export type { UseAuthOptions, UseAuthResult } from './hooks/useAuth';
 
+export { useScheduling } from './hooks/useScheduling';
+export type {
+  UseSchedulingOptions,
+  UseSchedulingResult,
+} from './hooks/useScheduling';
+
+export { useSchedulingAdmin } from './hooks/useSchedulingAdmin';
+export type {
+  UseSchedulingAdminOptions,
+  UseSchedulingAdminResult,
+  CrudResult,
+  SingletonResult,
+} from './hooks/useSchedulingAdmin';
+
+export { useGoogleCalendarConnect } from './hooks/useGoogleCalendarConnect';
+export type {
+  UseGoogleCalendarConnectOptions,
+  UseGoogleCalendarConnectResult,
+  GoogleCalendarConnectStatus,
+} from './hooks/useGoogleCalendarConnect';
+
 // Headless primitives (className-pass-through; lib never imports a CSS framework)
 export { PhotoboothBanner } from './primitives/Wall/PhotoboothBanner';
 export type { PhotoboothBannerProps } from './primitives/Wall/PhotoboothBanner';
@@ -100,6 +121,29 @@ export type {
   SceneBackgroundsPanelErrorProps,
 } from './primitives/Wall/SceneBackgroundsPanel';
 
+export { BookingFlow } from './primitives/Scheduling/BookingFlow';
+export type {
+  BookingFlowProps,
+  BookingFlowServiceProps,
+  BookingFlowResourceProps,
+  BookingFlowDateTimeProps,
+  BookingFlowDetailsProps,
+  BookingFlowConfirmProps,
+} from './primitives/Scheduling/BookingFlow';
+
+export {
+  SchedulingSettingsPanel,
+  SchedulingServicesTable,
+  SchedulingResourcesTable,
+  SchedulingCalendarConnect,
+} from './primitives/Scheduling/Admin';
+export type {
+  SchedulingSettingsPanelProps,
+  SchedulingServicesTableProps,
+  SchedulingResourcesTableProps,
+  SchedulingCalendarConnectProps,
+} from './primitives/Scheduling/Admin';
+
 export { AuthDialog } from './primitives/Auth/AuthDialog';
 export type {
   AuthDialogProps,
@@ -131,6 +175,32 @@ export {
 
 // Types
 export type { WallPost, WallScene, SceneBackground } from './types/wall';
+
+export type {
+  SchedulingService,
+  SchedulingResource,
+  SchedulingResourceServiceLink,
+  SchedulingWorkingHours,
+  SchedulingTimeOff,
+  SchedulingBooking,
+  SchedulingBookingStatus,
+  SchedulingSettings,
+  SchedulingVerticalPreset,
+  SchedulingSlot,
+  SchedulingBookingDetails,
+  SchedulingConfirmedBooking,
+  SchedulingState,
+  SchedulingCalendarSummary,
+  Service,
+  Resource,
+  Slot,
+  BookingDetails,
+} from './types/scheduling';
+
+export {
+  resolveSchedulingBasePath,
+  SchedulingClientError,
+} from './lib/schedulingClient';
 
 export { resolveAuthBasePath, AuthClientError } from './lib/authClient';
 export type {
