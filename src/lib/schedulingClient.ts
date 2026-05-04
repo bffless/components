@@ -125,9 +125,10 @@ export function schedulingPatch<T>(
 export function schedulingDelete<T>(
   basePath: string,
   path: string,
+  body?: unknown,
   opts: RequestOptions = {},
 ): Promise<T> {
-  return request<T>('DELETE', basePath + path, undefined, opts);
+  return request<T>('DELETE', basePath + path, body, opts);
 }
 
 function buildUrl(
