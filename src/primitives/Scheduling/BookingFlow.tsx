@@ -51,7 +51,12 @@ function BookingFlowRoot({
   scheduling: external,
   ...hookOpts
 }: BookingFlowProps) {
-  const internal = useScheduling(external ? {} : hookOpts);
+  // Hooks can't be called conditionally, so the internal hook always runs.
+  // When an external hook is supplied, suppress its initial /services fetch
+  // so we don't fire every catalog request twice.
+  const internal = useScheduling(
+    external ? { skipInitialLoad: true } : hookOpts,
+  );
   const value = external ?? internal;
   return (
     <BookingFlowContext.Provider value={value}>
