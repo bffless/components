@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.2](https://github.com/bffless/components/compare/v0.11.1...v0.11.2) (2026-05-05)
+
+
+### Bug Fixes
+
+* **useAuth:** default signUp redirect to window.location.href ([193900a](https://github.com/bffless/components/commit/193900a839deb876eae8d2ae356328de0262e0e6))
+* **useAuth:** default signUp redirect to window.location.href ([a4be59b](https://github.com/bffless/components/commit/a4be59b888ed428bd346dfdf76a2809f954bd3d8))
+
 ## [0.11.1](https://github.com/bffless/components/compare/v0.11.0...v0.11.1) (2026-05-05)
 
 
