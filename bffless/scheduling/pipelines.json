@@ -1,0 +1,2264 @@
+{
+  "name": "scheduling",
+  "description": "Generic scheduling primitive — public booking + admin CRUD. Google Calendar is a soft, opt-in dependency.",
+  "rules": [
+    {
+      "pathPattern": "/api/scheduling/services",
+      "method": "GET",
+      "description": "List active services (public, anonymous-allowed). Sorted by sort_order asc.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_services",
+        "description": "List active scheduling services for the public booking page",
+        "validators": null,
+        "steps": [
+          {
+            "id": "list",
+            "name": "list",
+            "handlerType": "data_query",
+            "config": {
+              "filters": {
+                "active": {
+                  "op": "eq",
+                  "value": "true"
+                }
+              },
+              "orderBy": {
+                "field": "sort_order",
+                "direction": "asc"
+              },
+              "schemaId": "{{scheduling_service}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"services\": {{{steps.list}}}}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/resources",
+      "method": "GET",
+      "description": "List active resources optionally filtered by service_id (M:N via scheduling_resource_service). Public, anonymous-allowed.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_resources",
+        "description": "List resources that can perform a given service (or all active if no service_id)",
+        "validators": null,
+        "steps": [
+          {
+            "id": "links",
+            "name": "links",
+            "handlerType": "data_query",
+            "config": {
+              "filters": {
+                "service_id": {
+                  "op": "eq",
+                  "value": "request.query.service_id"
+                }
+              },
+              "schemaId": "{{scheduling_resource_service}}"
+            }
+          },
+          {
+            "id": "all_resources",
+            "name": "all_resources",
+            "handlerType": "data_query",
+            "config": {
+              "filters": {
+                "active": {
+                  "op": "eq",
+                  "value": "true"
+                }
+              },
+              "orderBy": {
+                "field": "sort_order",
+                "direction": "asc"
+              },
+              "schemaId": "{{scheduling_resource}}"
+            }
+          },
+          {
+            "id": "filter",
+            "name": "filter",
+            "handlerType": "function_handler",
+            "config": {
+              "code": "function handler({ request, steps }) {\n  var serviceId = request.query.service_id;\n  var allResources = steps.all_resources || [];\n  if (!serviceId) {\n    return { resources: allResources };\n  }\n  var links = steps.links || [];\n  var allowedIds = {};\n  for (var i = 0; i < links.length; i++) {\n    allowedIds[links[i].resource_id] = true;\n  }\n  var filtered = [];\n  for (var j = 0; j < allResources.length; j++) {\n    if (allowedIds[allResources[j].id]) {\n      filtered.push(allResources[j]);\n    }\n  }\n  return { resources: filtered };\n}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"resources\": {{{steps.filter.resources}}}}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/availability",
+      "method": "GET",
+      "description": "Compute available booking slots for service+resource over [from, to]. DB-as-truth slot math. NOTE: google_calendar:freebusy augmentation deferred — MCP tool enum doesn't yet include the new handler. Will be added once MCP catches up; function_handler already handles missing googleStep gracefully.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_availability",
+        "description": "Returns available slot start times for a service. If resource_id is provided, restricts to that resource; otherwise fans out across all eligible resources for the service and dedupes slots by start time (first by sort_order wins). Slot.end = start + service.duration. No buffer logic — bookings only block their own [starts_at, ends_at] range.",
+        "validators": null,
+        "steps": [
+          {
+            "id": "settings",
+            "name": "settings",
+            "handlerType": "data_query",
+            "config": {
+              "pageSize": 1,
+              "schemaId": "{{scheduling_settings}}"
+            }
+          },
+          {
+            "id": "service",
+            "name": "service",
+            "handlerType": "data_query",
+            "config": {
+              "recordId": "request.query.service_id",
+              "schemaId": "{{scheduling_service}}"
+            }
+          },
+          {
+            "id": "allResources",
+            "name": "allResources",
+            "handlerType": "data_query",
+            "config": {
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_resource}}"
+            }
+          },
+          {
+            "id": "resourceServices",
+            "name": "resourceServices",
+            "handlerType": "data_query",
+            "config": {
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_resource_service}}"
+            }
+          },
+          {
+            "id": "workingHours",
+            "name": "workingHours",
+            "handlerType": "data_query",
+            "config": {
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_working_hours}}"
+            }
+          },
+          {
+            "id": "timeOff",
+            "name": "timeOff",
+            "handlerType": "data_query",
+            "config": {
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_time_off}}"
+            }
+          },
+          {
+            "id": "bookings",
+            "name": "bookings",
+            "handlerType": "data_query",
+            "config": {
+              "filters": {
+                "status": {
+                  "op": "eq",
+                  "value": "confirmed"
+                }
+              },
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_booking}}"
+            }
+          },
+          {
+            "id": "prepCalendars",
+            "name": "prepCalendars",
+            "handlerType": "function_handler",
+            "config": {
+              "code": "function handler({ request, steps }) {\n  var service = steps.service || {};\n  var allResources = steps.allResources || [];\n  var resourceServices = steps.resourceServices || [];\n  var requestedId = (request && request.query && request.query.resource_id) || null;\n  var eligibleIds = {};\n  for (var i = 0; i < resourceServices.length; i++) {\n    if (resourceServices[i].service_id === service.id) {\n      eligibleIds[resourceServices[i].resource_id] = true;\n    }\n  }\n  var candidates = [];\n  for (var j = 0; j < allResources.length; j++) {\n    var r = allResources[j];\n    if (r.active === false) continue;\n    if (!eligibleIds[r.id]) continue;\n    if (requestedId && r.id !== requestedId) continue;\n    candidates.push(r);\n  }\n  candidates.sort(function(a, b) { return (a.sort_order || 0) - (b.sort_order || 0); });\n  var first = '';\n  for (var k = 0; k < candidates.length; k++) {\n    if (candidates[k].google_calendar_id) { first = candidates[k].google_calendar_id; break; }\n  }\n  return { first: first };\n}"
+            }
+          },
+          {
+            "id": "googleFreeBusy",
+            "name": "googleFreeBusy",
+            "handlerType": "google_calendar",
+            "config": {
+              "action": "freebusy",
+              "timeMax": "request.query.to",
+              "timeMin": "request.query.from",
+              "optional": true,
+              "condition": "steps.prepCalendars.first",
+              "calendarIds": [
+                "steps.prepCalendars.first"
+              ]
+            }
+          },
+          {
+            "id": "compute",
+            "name": "compute",
+            "handlerType": "function_handler",
+            "config": {
+              "code": "function handler({ request, steps }) {\n  var settings = (steps.settings && steps.settings[0]) || {};\n  var service = steps.service || {};\n  var allResources = steps.allResources || [];\n  var resourceServices = steps.resourceServices || [];\n  var workingHoursAll = steps.workingHours || [];\n  var timeOffAll = steps.timeOff || [];\n  var bookingsAll = steps.bookings || [];\n  var requestedId = (request && request.query && request.query.resource_id) || null;\n\n  // Filter eligible resources for the chosen service.\n  var eligibleIds = {};\n  for (var rsi = 0; rsi < resourceServices.length; rsi++) {\n    if (resourceServices[rsi].service_id === service.id) {\n      eligibleIds[resourceServices[rsi].resource_id] = true;\n    }\n  }\n  var eligible = [];\n  for (var ri = 0; ri < allResources.length; ri++) {\n    var r = allResources[ri];\n    if (r.active === false) continue;\n    if (!eligibleIds[r.id]) continue;\n    if (requestedId && r.id !== requestedId) continue;\n    eligible.push(r);\n  }\n  eligible.sort(function(a, b) { return (a.sort_order || 0) - (b.sort_order || 0); });\n\n  var fromMs = new Date(request.query.from).getTime();\n  var toMs = new Date(request.query.to).getTime();\n  var nowMs = Date.now();\n  var minLead = (settings.min_lead_time_minutes || 0) * 60 * 1000;\n  var maxAdv = (settings.max_advance_days || 60) * 24 * 60 * 60 * 1000;\n  var earliestMs = nowMs + minLead;\n  var latestMs = nowMs + maxAdv;\n  var granMs = (settings.slot_granularity_minutes || 30) * 60 * 1000;\n  var durationMs = (service.duration_minutes || 30) * 60 * 1000;\n  var siteTz = settings.timezone || 'UTC';\n\n  function tzMin(ms, useTz) {\n    var parts = new Intl.DateTimeFormat('en-US', { timeZone: useTz, weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date(ms));\n    var weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };\n    var dow = 0, h = 0, m = 0;\n    for (var i = 0; i < parts.length; i++) {\n      if (parts[i].type === 'weekday') dow = weekdayMap[parts[i].value] || 0;\n      else if (parts[i].type === 'hour') h = parseInt(parts[i].value, 10) % 24;\n      else if (parts[i].type === 'minute') m = parseInt(parts[i].value, 10);\n    }\n    return { dow: dow, mins: h * 60 + m };\n  }\n  function parseHM(hm) {\n    var p = (hm || '00:00').split(':');\n    return parseInt(p[0], 10) * 60 + parseInt(p[1], 10);\n  }\n  function overlaps(aStart, aEnd, bStart, bEnd) { return bStart < aEnd && bEnd > aStart; }\n\n  var googleStep = steps.googleFreeBusy;\n  var googleSkipped = !!(googleStep && googleStep.skipped);\n  var googleByCal = (googleStep && !googleStep.skipped && googleStep.calendars) || {};\n\n  // Dedupe by start ISO. First eligible (by sort_order) wins.\n  var slotMap = {};\n\n  for (var er = 0; er < eligible.length; er++) {\n    var resource = eligible[er];\n    var tz = resource.timezone || siteTz;\n\n    var workingHours = [];\n    for (var w = 0; w < workingHoursAll.length; w++) {\n      var wh = workingHoursAll[w];\n      if (!wh.resource_id || wh.resource_id === resource.id) workingHours.push(wh);\n    }\n\n    var timeOff = [];\n    for (var t = 0; t < timeOffAll.length; t++) {\n      var trow = timeOffAll[t];\n      if (!trow.resource_id || trow.resource_id === resource.id) {\n        var trs = new Date(trow.starts_at).getTime();\n        var tre = new Date(trow.ends_at).getTime();\n        if (trs < toMs && tre > fromMs) timeOff.push({ s: trs, e: tre });\n      }\n    }\n\n    var bookings = [];\n    for (var b = 0; b < bookingsAll.length; b++) {\n      var br = bookingsAll[b];\n      if (br.resource_id !== resource.id) continue;\n      var bs = new Date(br.starts_at).getTime();\n      var be = new Date(br.ends_at).getTime();\n      if (bs < toMs && be > fromMs) bookings.push({ s: bs, e: be });\n    }\n\n    var googleBusy = [];\n    if (resource.google_calendar_id && googleByCal[resource.google_calendar_id]) {\n      googleBusy = googleByCal[resource.google_calendar_id].busy || [];\n    }\n\n    function withinWorkingHours(startMs, endMs) {\n      var s = tzMin(startMs, tz);\n      var e = tzMin(endMs, tz);\n      if (s.dow !== e.dow) return false;\n      for (var i = 0; i < workingHours.length; i++) {\n        var rr = workingHours[i];\n        if (rr.day_of_week !== s.dow) continue;\n        var rs = parseHM(rr.start_time);\n        var re = parseHM(rr.end_time);\n        if (s.mins >= rs && e.mins <= re) return true;\n      }\n      return false;\n    }\n\n    var cursor = Math.ceil(fromMs / granMs) * granMs;\n    while (cursor + durationMs <= toMs) {\n      var slotStart = cursor;\n      var slotEnd = cursor + durationMs;\n      cursor += granMs;\n      if (slotStart < earliestMs) continue;\n      if (slotStart > latestMs) continue;\n      if (!withinWorkingHours(slotStart, slotEnd)) continue;\n      var blocked = false;\n      for (var ti = 0; ti < timeOff.length; ti++) {\n        if (overlaps(slotStart, slotEnd, timeOff[ti].s, timeOff[ti].e)) { blocked = true; break; }\n      }\n      if (blocked) continue;\n      for (var bi = 0; bi < bookings.length; bi++) {\n        if (overlaps(slotStart, slotEnd, bookings[bi].s, bookings[bi].e)) { blocked = true; break; }\n      }\n      if (blocked) continue;\n      for (var gi = 0; gi < googleBusy.length; gi++) {\n        if (overlaps(slotStart, slotEnd, new Date(googleBusy[gi].start).getTime(), new Date(googleBusy[gi].end).getTime())) { blocked = true; break; }\n      }\n      if (blocked) continue;\n      var key = String(slotStart);\n      if (!slotMap[key]) {\n        slotMap[key] = {\n          start: new Date(slotStart).toISOString(),\n          end: new Date(slotEnd).toISOString(),\n          resource_id: resource.id\n        };\n      }\n    }\n  }\n\n  var slots = [];\n  for (var k in slotMap) {\n    if (Object.prototype.hasOwnProperty.call(slotMap, k)) slots.push(slotMap[k]);\n  }\n  slots.sort(function(a, b) {\n    if (a.start < b.start) return -1;\n    if (a.start > b.start) return 1;\n    return 0;\n  });\n  return { slots: slots, googleSkipped: googleSkipped };\n}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"slots\": {{{steps.compute.slots}}}, \"googleSkipped\": {{steps.compute.googleSkipped}}}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/bookings",
+      "method": "POST",
+      "description": "Create a booking. Re-checks slot availability before write to avoid race-induced double-booking. DB-only for now; google_calendar:create_event mirror pending MCP enum update.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_booking_create",
+        "description": "Create a confirmed booking. Accepts resource_id (specific stylist) or null (Any stylist mode). In Any mode, picks the first eligible resource (lowest sort_order) that's still free at [starts_at, ends_at] and writes that real resource id. Captures user.id when authenticated; anonymous bookings store user_id = null.",
+        "validators": [],
+        "steps": [
+          {
+            "id": "parse",
+            "name": "parse",
+            "handlerType": "form_handler",
+            "config": {
+              "fields": {
+                "notes": {
+                  "type": "string",
+                  "required": false
+                },
+                "ends_at": {
+                  "type": "string",
+                  "required": true
+                },
+                "starts_at": {
+                  "type": "string",
+                  "required": true
+                },
+                "service_id": {
+                  "type": "string",
+                  "required": true
+                },
+                "resource_id": {
+                  "type": "string",
+                  "required": false
+                },
+                "customer_name": {
+                  "type": "string",
+                  "required": true
+                },
+                "customer_email": {
+                  "type": "email",
+                  "required": true
+                },
+                "customer_phone": {
+                  "type": "string",
+                  "required": false
+                }
+              }
+            }
+          },
+          {
+            "id": "allResources",
+            "name": "allResources",
+            "handlerType": "data_query",
+            "config": {
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_resource}}"
+            }
+          },
+          {
+            "id": "resourceServices",
+            "name": "resourceServices",
+            "handlerType": "data_query",
+            "config": {
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_resource_service}}"
+            }
+          },
+          {
+            "id": "allBookings",
+            "name": "allBookings",
+            "handlerType": "data_query",
+            "config": {
+              "filters": {
+                "status": {
+                  "op": "eq",
+                  "value": "confirmed"
+                }
+              },
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_booking}}"
+            }
+          },
+          {
+            "id": "assign",
+            "name": "assign",
+            "handlerType": "function_handler",
+            "config": {
+              "code": "function handler({ steps, user }) {\n  var parse = steps.parse || {};\n  var startMs = new Date(parse.starts_at).getTime();\n  var endMs = new Date(parse.ends_at).getTime();\n  var requestedId = parse.resource_id || null;\n  var allResources = steps.allResources || [];\n  var resourceServices = steps.resourceServices || [];\n  var allBookings = steps.allBookings || [];\n\n  // Eligible resources for this service.\n  var eligibleIds = {};\n  for (var i = 0; i < resourceServices.length; i++) {\n    if (resourceServices[i].service_id === parse.service_id) {\n      eligibleIds[resourceServices[i].resource_id] = true;\n    }\n  }\n  var candidates = [];\n  for (var j = 0; j < allResources.length; j++) {\n    var r = allResources[j];\n    if (r.active === false) continue;\n    if (!eligibleIds[r.id]) continue;\n    if (requestedId && r.id !== requestedId) continue;\n    candidates.push(r);\n  }\n  candidates.sort(function(a, b) { return (a.sort_order || 0) - (b.sort_order || 0); });\n\n  // First candidate with no conflict at the requested slot wins.\n  var assigned = null;\n  for (var c = 0; c < candidates.length; c++) {\n    var cand = candidates[c];\n    var conflict = false;\n    for (var bi = 0; bi < allBookings.length; bi++) {\n      var bk = allBookings[bi];\n      if (bk.resource_id !== cand.id) continue;\n      var bs = new Date(bk.starts_at).getTime();\n      var be = new Date(bk.ends_at).getTime();\n      if (bs < endMs && be > startMs) { conflict = true; break; }\n    }\n    if (!conflict) { assigned = cand; break; }\n  }\n\n  // RFC4122 v4 token.\n  function r16() { return Math.floor(Math.random() * 16).toString(16); }\n  var token = '';\n  for (var t = 0; t < 32; t++) {\n    if (t === 8 || t === 12 || t === 16 || t === 20) token += '-';\n    if (t === 12) token += '4';\n    else if (t === 16) token += ((Math.random() * 4) | 8).toString(16);\n    else token += r16();\n  }\n\n  var canCreate = !!assigned;\n  // Capture user.id when authenticated; anon booking stores empty string\n  // (which the data_create writes as null since the field is optional).\n  var userId = (user && user.id) ? user.id : '';\n  return {\n    assignedResourceId: assigned ? assigned.id : '',\n    canCreate: canCreate,\n    conflict: !canCreate,\n    canCreateWithCalendar: canCreate && !!(assigned && assigned.google_calendar_id),\n    token: token,\n    userId: userId\n  };\n}"
+            }
+          },
+          {
+            "id": "resourceLookup",
+            "name": "resourceLookup",
+            "handlerType": "data_query",
+            "config": {
+              "recordId": "steps.assign.assignedResourceId",
+              "schemaId": "{{scheduling_resource}}",
+              "condition": "steps.assign.canCreate"
+            }
+          },
+          {
+            "id": "serviceLookup",
+            "name": "serviceLookup",
+            "handlerType": "data_query",
+            "config": {
+              "recordId": "steps.parse.service_id",
+              "schemaId": "{{scheduling_service}}",
+              "condition": "steps.assign.canCreate"
+            }
+          },
+          {
+            "id": "create",
+            "name": "create",
+            "handlerType": "data_create",
+            "config": {
+              "fields": {
+                "notes": "steps.parse.notes",
+                "status": "confirmed",
+                "ends_at": "steps.parse.ends_at",
+                "user_id": "steps.assign.userId",
+                "starts_at": "steps.parse.starts_at",
+                "service_id": "steps.parse.service_id",
+                "resource_id": "steps.assign.assignedResourceId",
+                "customer_name": "steps.parse.customer_name",
+                "customer_email": "steps.parse.customer_email",
+                "customer_phone": "steps.parse.customer_phone",
+                "reschedule_token": "steps.assign.token"
+              },
+              "schemaId": "{{scheduling_booking}}",
+              "condition": "steps.assign.canCreate"
+            }
+          },
+          {
+            "id": "createEvent",
+            "name": "createEvent",
+            "handlerType": "google_calendar",
+            "config": {
+              "action": "create_event",
+              "endTime": "steps.parse.ends_at",
+              "summary": "{{steps.serviceLookup.name}} — {{steps.parse.customer_name}}",
+              "optional": true,
+              "attendees": [
+                {
+                  "email": "steps.parse.customer_email"
+                }
+              ],
+              "condition": "steps.assign.canCreateWithCalendar",
+              "startTime": "steps.parse.starts_at",
+              "calendarId": "steps.resourceLookup.google_calendar_id",
+              "description": "Booking via {{steps.resourceLookup.name}}\\nCustomer: {{steps.parse.customer_name}} <{{steps.parse.customer_email}}>\\nNotes: {{steps.parse.notes}}",
+              "sendUpdates": "all"
+            }
+          },
+          {
+            "id": "attachEventId",
+            "name": "attachEventId",
+            "handlerType": "data_update",
+            "config": {
+              "fields": {
+                "notes": "steps.create.notes",
+                "status": "steps.create.status",
+                "ends_at": "steps.create.ends_at",
+                "user_id": "steps.create.user_id",
+                "starts_at": "steps.create.starts_at",
+                "service_id": "steps.create.service_id",
+                "resource_id": "steps.create.resource_id",
+                "customer_name": "steps.create.customer_name",
+                "customer_email": "steps.create.customer_email",
+                "customer_phone": "steps.create.customer_phone",
+                "google_event_id": "steps.createEvent.event.id",
+                "reschedule_token": "steps.create.reschedule_token"
+              },
+              "recordId": "steps.create.id",
+              "schemaId": "{{scheduling_booking}}",
+              "condition": "steps.createEvent.event"
+            }
+          },
+          {
+            "id": "respondOk",
+            "name": "respondOk",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"booking_id\": \"{{steps.create.id}}\", \"resource_id\": \"{{steps.assign.assignedResourceId}}\", \"token\": \"{{steps.assign.token}}\", \"manage_url\": \"/manage?token={{steps.assign.token}}\", \"google_event_id\": \"{{steps.createEvent.event.id}}\"}",
+              "status": 200,
+              "condition": "steps.assign.canCreate"
+            }
+          },
+          {
+            "id": "respondConflict",
+            "name": "respondConflict",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"error\": \"SLOT_TAKEN\", \"message\": \"That slot was just taken — please pick another.\"}",
+              "status": 409,
+              "condition": "steps.assign.conflict"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/bookings/manage",
+      "method": "POST",
+      "description": "Cancel or reschedule a booking via opaque reschedule_token. Token = the auth credential (per design decisions §7).",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_booking_manage",
+        "description": "Token-gated cancel + reschedule. Mirrors to Google Calendar (delete/update) when the booking has a google_event_id from the original create.",
+        "validators": null,
+        "steps": [
+          {
+            "id": "parse",
+            "name": "parse",
+            "handlerType": "form_handler",
+            "config": {
+              "fields": {
+                "token": {
+                  "type": "string",
+                  "required": true
+                },
+                "action": {
+                  "type": "string",
+                  "required": true
+                },
+                "new_ends_at": {
+                  "type": "string",
+                  "required": false
+                },
+                "new_starts_at": {
+                  "type": "string",
+                  "required": false
+                }
+              }
+            }
+          },
+          {
+            "id": "lookup",
+            "name": "lookup",
+            "handlerType": "data_query",
+            "config": {
+              "filters": {
+                "reschedule_token": {
+                  "op": "eq",
+                  "value": "steps.parse.token"
+                }
+              },
+              "pageSize": 1,
+              "schemaId": "{{scheduling_booking}}"
+            }
+          },
+          {
+            "id": "existingForResource",
+            "name": "existingForResource",
+            "handlerType": "data_query",
+            "config": {
+              "filters": {
+                "status": {
+                  "op": "eq",
+                  "value": "confirmed"
+                },
+                "resource_id": {
+                  "op": "eq",
+                  "value": "steps.lookup.0.resource_id"
+                }
+              },
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_booking}}",
+              "condition": "steps.parse.action"
+            }
+          },
+          {
+            "id": "resourceLookup",
+            "name": "resourceLookup",
+            "handlerType": "data_query",
+            "config": {
+              "recordId": "steps.lookup.0.resource_id",
+              "schemaId": "{{scheduling_resource}}",
+              "condition": "steps.lookup.0.resource_id"
+            }
+          },
+          {
+            "id": "validate",
+            "name": "validate",
+            "handlerType": "function_handler",
+            "config": {
+              "code": "function handler({ steps }) {\n  var booking = (steps.lookup && steps.lookup[0]) || null;\n  if (!booking) return { notFound: true, doCancel: false, doReschedule: false, conflict: false, success: false, hasGoogleEvent: false };\n  var hasGoogleEvent = !!booking.google_event_id;\n  var calendarId = (steps.resourceLookup && steps.resourceLookup.google_calendar_id) || '';\n  var action = steps.parse.action;\n  if (action === 'cancel') {\n    return { notFound: false, doCancel: true, doReschedule: false, conflict: false, success: true, bookingId: booking.id, googleEventId: booking.google_event_id || '', calendarId: calendarId, hasGoogleEvent: hasGoogleEvent && !!calendarId };\n  }\n  if (action === 'reschedule') {\n    var newStart = steps.parse.new_starts_at;\n    var newEnd = steps.parse.new_ends_at;\n    if (!newStart || !newEnd) return { notFound: false, doCancel: false, doReschedule: false, conflict: true, success: false, conflictReason: 'missing_times', hasGoogleEvent: false };\n    var nsMs = new Date(newStart).getTime();\n    var neMs = new Date(newEnd).getTime();\n    var others = steps.existingForResource || [];\n    var hasConflict = false;\n    for (var i = 0; i < others.length; i++) {\n      if (others[i].id === booking.id) continue;\n      var bs = new Date(others[i].starts_at).getTime();\n      var be = new Date(others[i].ends_at).getTime();\n      if (bs < neMs && be > nsMs) { hasConflict = true; break; }\n    }\n    if (hasConflict) return { notFound: false, doCancel: false, doReschedule: false, conflict: true, success: false, conflictReason: 'slot_taken', hasGoogleEvent: false };\n    return { notFound: false, doCancel: false, doReschedule: true, conflict: false, success: true, bookingId: booking.id, googleEventId: booking.google_event_id || '', calendarId: calendarId, hasGoogleEvent: hasGoogleEvent && !!calendarId };\n  }\n  return { notFound: false, doCancel: false, doReschedule: false, conflict: true, success: false, conflictReason: 'invalid_action', hasGoogleEvent: false };\n}"
+            }
+          },
+          {
+            "id": "doCancel",
+            "name": "doCancel",
+            "handlerType": "data_update",
+            "config": {
+              "fields": {
+                "status": "cancelled"
+              },
+              "recordId": "steps.validate.bookingId",
+              "schemaId": "{{scheduling_booking}}",
+              "condition": "steps.validate.doCancel"
+            }
+          },
+          {
+            "id": "deleteGoogleEvent",
+            "name": "deleteGoogleEvent",
+            "handlerType": "google_calendar",
+            "config": {
+              "action": "delete_event",
+              "eventId": "steps.validate.googleEventId",
+              "optional": true,
+              "condition": "steps.validate.doCancel && steps.validate.hasGoogleEvent",
+              "calendarId": "steps.validate.calendarId",
+              "sendUpdates": "none"
+            }
+          },
+          {
+            "id": "doReschedule",
+            "name": "doReschedule",
+            "handlerType": "data_update",
+            "config": {
+              "fields": {
+                "ends_at": "steps.parse.new_ends_at",
+                "starts_at": "steps.parse.new_starts_at"
+              },
+              "recordId": "steps.validate.bookingId",
+              "schemaId": "{{scheduling_booking}}",
+              "condition": "steps.validate.doReschedule"
+            }
+          },
+          {
+            "id": "updateGoogleEvent",
+            "name": "updateGoogleEvent",
+            "handlerType": "google_calendar",
+            "config": {
+              "action": "update_event",
+              "endTime": "steps.parse.new_ends_at",
+              "eventId": "steps.validate.googleEventId",
+              "optional": true,
+              "condition": "steps.validate.doReschedule && steps.validate.hasGoogleEvent",
+              "startTime": "steps.parse.new_starts_at",
+              "calendarId": "steps.validate.calendarId",
+              "sendUpdates": "none"
+            }
+          },
+          {
+            "id": "respondOk",
+            "name": "respondOk",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"success\": true, \"booking_id\": \"{{steps.validate.bookingId}}\", \"action\": \"{{steps.parse.action}}\"}",
+              "status": 200,
+              "condition": "steps.validate.success"
+            }
+          },
+          {
+            "id": "respondNotFound",
+            "name": "respondNotFound",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"error\": \"NOT_FOUND\", \"message\": \"Booking not found or token invalid.\"}",
+              "status": 404,
+              "condition": "steps.validate.notFound"
+            }
+          },
+          {
+            "id": "respondConflict",
+            "name": "respondConflict",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"error\": \"CONFLICT\", \"reason\": \"{{steps.validate.conflictReason}}\"}",
+              "status": 409,
+              "condition": "steps.validate.conflict"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/services",
+      "method": "GET",
+      "description": "Admin: list all services (active and inactive). auth_required + admin role.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_list_services",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "list",
+            "name": "list",
+            "handlerType": "data_query",
+            "config": {
+              "orderBy": {
+                "field": "sort_order",
+                "direction": "asc"
+              },
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_service}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"records\": {{{steps.list}}}}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/resources",
+      "method": "GET",
+      "description": "Admin: list all resources (active and inactive).",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_list_resources",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "list",
+            "name": "list",
+            "handlerType": "data_query",
+            "config": {
+              "orderBy": {
+                "field": "sort_order",
+                "direction": "asc"
+              },
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_resource}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"records\": {{{steps.list}}}}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/resource_services",
+      "method": "GET",
+      "description": "Admin: list all resource-service M:N links.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_list_resource_services",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "list",
+            "name": "list",
+            "handlerType": "data_query",
+            "config": {
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_resource_service}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"records\": {{{steps.list}}}}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/working_hours",
+      "method": "GET",
+      "description": "Admin: list all working-hours rows (per-resource and site-wide).",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_list_working_hours",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "list",
+            "name": "list",
+            "handlerType": "data_query",
+            "config": {
+              "orderBy": {
+                "field": "day_of_week",
+                "direction": "asc"
+              },
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_working_hours}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"records\": {{{steps.list}}}}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/time_off",
+      "method": "GET",
+      "description": "Admin: list all time-off rows.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_list_time_off",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "list",
+            "name": "list",
+            "handlerType": "data_query",
+            "config": {
+              "orderBy": {
+                "field": "starts_at",
+                "direction": "asc"
+              },
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_time_off}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"records\": {{{steps.list}}}}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/services",
+      "method": "POST",
+      "description": "Admin: create a service.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_create_service",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "parse",
+            "name": "parse",
+            "handlerType": "form_handler",
+            "config": {
+              "fields": {
+                "name": {
+                  "type": "string",
+                  "required": true
+                },
+                "color": {
+                  "type": "string",
+                  "required": false
+                },
+                "active": {
+                  "type": "boolean",
+                  "required": true
+                },
+                "category": {
+                  "type": "string",
+                  "required": false
+                },
+                "sort_order": {
+                  "type": "number",
+                  "required": false
+                },
+                "description": {
+                  "type": "string",
+                  "required": false
+                },
+                "price_cents": {
+                  "type": "number",
+                  "required": false
+                },
+                "duration_minutes": {
+                  "type": "number",
+                  "required": true
+                },
+                "buffer_after_minutes": {
+                  "type": "number",
+                  "required": false
+                },
+                "buffer_before_minutes": {
+                  "type": "number",
+                  "required": false
+                }
+              }
+            }
+          },
+          {
+            "id": "create",
+            "name": "create",
+            "handlerType": "data_create",
+            "config": {
+              "fields": {
+                "name": "steps.parse.name",
+                "color": "steps.parse.color",
+                "active": "steps.parse.active",
+                "category": "steps.parse.category",
+                "sort_order": "steps.parse.sort_order",
+                "description": "steps.parse.description",
+                "price_cents": "steps.parse.price_cents",
+                "duration_minutes": "steps.parse.duration_minutes",
+                "buffer_after_minutes": "steps.parse.buffer_after_minutes",
+                "buffer_before_minutes": "steps.parse.buffer_before_minutes"
+              },
+              "schemaId": "{{scheduling_service}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"id\": \"{{steps.create.id}}\", \"record\": {{{steps.create}}}}",
+              "status": 201
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/resources",
+      "method": "POST",
+      "description": "Admin: create a resource (staff/room/equipment).",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_create_resource",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "parse",
+            "name": "parse",
+            "handlerType": "form_handler",
+            "config": {
+              "fields": {
+                "bio": {
+                  "type": "string",
+                  "required": false
+                },
+                "name": {
+                  "type": "string",
+                  "required": true
+                },
+                "email": {
+                  "type": "string",
+                  "required": false
+                },
+                "active": {
+                  "type": "boolean",
+                  "required": true
+                },
+                "timezone": {
+                  "type": "string",
+                  "required": false
+                },
+                "photo_url": {
+                  "type": "string",
+                  "required": false
+                },
+                "sort_order": {
+                  "type": "number",
+                  "required": false
+                },
+                "google_calendar_id": {
+                  "type": "string",
+                  "required": false
+                }
+              }
+            }
+          },
+          {
+            "id": "create",
+            "name": "create",
+            "handlerType": "data_create",
+            "config": {
+              "fields": {
+                "bio": "steps.parse.bio",
+                "name": "steps.parse.name",
+                "email": "steps.parse.email",
+                "active": "steps.parse.active",
+                "timezone": "steps.parse.timezone",
+                "photo_url": "steps.parse.photo_url",
+                "sort_order": "steps.parse.sort_order",
+                "google_calendar_id": "steps.parse.google_calendar_id"
+              },
+              "schemaId": "{{scheduling_resource}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"id\": \"{{steps.create.id}}\", \"record\": {{{steps.create}}}}",
+              "status": 201
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/resource_services",
+      "method": "POST",
+      "description": "Admin: create a resource-service M:N link.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_create_resource_service",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "parse",
+            "name": "parse",
+            "handlerType": "form_handler",
+            "config": {
+              "fields": {
+                "service_id": {
+                  "type": "string",
+                  "required": true
+                },
+                "resource_id": {
+                  "type": "string",
+                  "required": true
+                }
+              }
+            }
+          },
+          {
+            "id": "create",
+            "name": "create",
+            "handlerType": "data_create",
+            "config": {
+              "fields": {
+                "service_id": "steps.parse.service_id",
+                "resource_id": "steps.parse.resource_id"
+              },
+              "schemaId": "{{scheduling_resource_service}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"id\": \"{{steps.create.id}}\", \"record\": {{{steps.create}}}}",
+              "status": 201
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/working_hours",
+      "method": "POST",
+      "description": "Admin: create a working-hours row.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_create_working_hours",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "parse",
+            "name": "parse",
+            "handlerType": "form_handler",
+            "config": {
+              "fields": {
+                "end_time": {
+                  "type": "string",
+                  "required": true
+                },
+                "start_time": {
+                  "type": "string",
+                  "required": true
+                },
+                "day_of_week": {
+                  "type": "number",
+                  "required": true
+                },
+                "resource_id": {
+                  "type": "string",
+                  "required": false
+                }
+              }
+            }
+          },
+          {
+            "id": "create",
+            "name": "create",
+            "handlerType": "data_create",
+            "config": {
+              "fields": {
+                "end_time": "steps.parse.end_time",
+                "start_time": "steps.parse.start_time",
+                "day_of_week": "steps.parse.day_of_week",
+                "resource_id": "steps.parse.resource_id"
+              },
+              "schemaId": "{{scheduling_working_hours}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"id\": \"{{steps.create.id}}\", \"record\": {{{steps.create}}}}",
+              "status": 201
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/time_off",
+      "method": "POST",
+      "description": "Admin: create a time-off row (vacation/holiday).",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_create_time_off",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "parse",
+            "name": "parse",
+            "handlerType": "form_handler",
+            "config": {
+              "fields": {
+                "reason": {
+                  "type": "string",
+                  "required": false
+                },
+                "ends_at": {
+                  "type": "string",
+                  "required": true
+                },
+                "starts_at": {
+                  "type": "string",
+                  "required": true
+                },
+                "resource_id": {
+                  "type": "string",
+                  "required": false
+                }
+              }
+            }
+          },
+          {
+            "id": "create",
+            "name": "create",
+            "handlerType": "data_create",
+            "config": {
+              "fields": {
+                "reason": "steps.parse.reason",
+                "ends_at": "steps.parse.ends_at",
+                "starts_at": "steps.parse.starts_at",
+                "resource_id": "steps.parse.resource_id"
+              },
+              "schemaId": "{{scheduling_time_off}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"id\": \"{{steps.create.id}}\", \"record\": {{{steps.create}}}}",
+              "status": 201
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/services",
+      "method": "PATCH",
+      "description": "Admin: partial-update a service. Read-then-merge to preserve unspecified fields.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_update_service",
+        "description": "Update a scheduling_service. Overlays only the fields the client sent on top of the existing record. Responds with the merged record.",
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {}
+          }
+        ],
+        "steps": [
+          {
+            "id": "parse",
+            "name": "parse",
+            "handlerType": "form_handler",
+            "config": {
+              "fields": {
+                "id": {
+                  "type": "string",
+                  "required": true
+                },
+                "name": {
+                  "type": "string",
+                  "required": false
+                },
+                "color": {
+                  "type": "string",
+                  "required": false
+                },
+                "active": {
+                  "type": "boolean",
+                  "required": false
+                },
+                "category": {
+                  "type": "string",
+                  "required": false
+                },
+                "sort_order": {
+                  "type": "number",
+                  "required": false
+                },
+                "description": {
+                  "type": "string",
+                  "required": false
+                },
+                "price_cents": {
+                  "type": "number",
+                  "required": false
+                },
+                "duration_minutes": {
+                  "type": "number",
+                  "required": false
+                },
+                "buffer_after_minutes": {
+                  "type": "number",
+                  "required": false
+                },
+                "buffer_before_minutes": {
+                  "type": "number",
+                  "required": false
+                }
+              }
+            }
+          },
+          {
+            "id": "existing",
+            "name": "existing",
+            "handlerType": "data_query",
+            "config": {
+              "recordId": "steps.parse.id",
+              "schemaId": "{{scheduling_service}}"
+            }
+          },
+          {
+            "id": "merge",
+            "name": "merge",
+            "handlerType": "function_handler",
+            "config": {
+              "code": "function handler({ steps, request }) {\n  var existing = steps.existing || {};\n  var parse = steps.parse || {};\n  var body = (request && request.body) || {};\n  var fields = ['name','description','duration_minutes','buffer_before_minutes','buffer_after_minutes','price_cents','color','category','active','sort_order'];\n  var out = { id: parse.id };\n  for (var i = 0; i < fields.length; i++) {\n    var f = fields[i];\n    var sent = Object.prototype.hasOwnProperty.call(body, f);\n    out[f] = sent ? parse[f] : existing[f];\n  }\n  return out;\n}"
+            }
+          },
+          {
+            "id": "update",
+            "name": "update",
+            "handlerType": "data_update",
+            "config": {
+              "fields": {
+                "name": "steps.merge.name",
+                "color": "steps.merge.color",
+                "active": "steps.merge.active",
+                "category": "steps.merge.category",
+                "sort_order": "steps.merge.sort_order",
+                "description": "steps.merge.description",
+                "price_cents": "steps.merge.price_cents",
+                "duration_minutes": "steps.merge.duration_minutes",
+                "buffer_after_minutes": "steps.merge.buffer_after_minutes",
+                "buffer_before_minutes": "steps.merge.buffer_before_minutes"
+              },
+              "recordId": "steps.parse.id",
+              "schemaId": "{{scheduling_service}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"id\": \"{{steps.parse.id}}\", \"record\": {{{steps.merge}}}}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/resources",
+      "method": "PATCH",
+      "description": "Admin: partial-update a resource. Read-then-merge.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_update_resource",
+        "description": "Update a scheduling_resource. Reads existing row and overlays only the fields the client actually sent (via request.body.hasOwnProperty), so a PATCH that names a single field doesn't blank the rest. Responds with the merged record.",
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {}
+          }
+        ],
+        "steps": [
+          {
+            "id": "parse",
+            "name": "parse",
+            "handlerType": "form_handler",
+            "config": {
+              "fields": {
+                "id": {
+                  "type": "string",
+                  "required": true
+                },
+                "bio": {
+                  "type": "string",
+                  "required": false
+                },
+                "name": {
+                  "type": "string",
+                  "required": false
+                },
+                "email": {
+                  "type": "string",
+                  "required": false
+                },
+                "active": {
+                  "type": "boolean",
+                  "required": false
+                },
+                "timezone": {
+                  "type": "string",
+                  "required": false
+                },
+                "photo_url": {
+                  "type": "string",
+                  "required": false
+                },
+                "sort_order": {
+                  "type": "number",
+                  "required": false
+                },
+                "google_calendar_id": {
+                  "type": "string",
+                  "required": false
+                }
+              }
+            }
+          },
+          {
+            "id": "existing",
+            "name": "existing",
+            "handlerType": "data_query",
+            "config": {
+              "recordId": "steps.parse.id",
+              "schemaId": "{{scheduling_resource}}"
+            }
+          },
+          {
+            "id": "merge",
+            "name": "merge",
+            "handlerType": "function_handler",
+            "config": {
+              "code": "function handler({ steps, request }) {\n  var existing = steps.existing || {};\n  var parse = steps.parse || {};\n  var body = (request && request.body) || {};\n  var fields = ['name','bio','photo_url','email','google_calendar_id','timezone','active','sort_order'];\n  var out = { id: parse.id };\n  for (var i = 0; i < fields.length; i++) {\n    var f = fields[i];\n    var sent = Object.prototype.hasOwnProperty.call(body, f);\n    out[f] = sent ? parse[f] : existing[f];\n  }\n  return out;\n}"
+            }
+          },
+          {
+            "id": "update",
+            "name": "update",
+            "handlerType": "data_update",
+            "config": {
+              "fields": {
+                "bio": "steps.merge.bio",
+                "name": "steps.merge.name",
+                "email": "steps.merge.email",
+                "active": "steps.merge.active",
+                "timezone": "steps.merge.timezone",
+                "photo_url": "steps.merge.photo_url",
+                "sort_order": "steps.merge.sort_order",
+                "google_calendar_id": "steps.merge.google_calendar_id"
+              },
+              "recordId": "steps.parse.id",
+              "schemaId": "{{scheduling_resource}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"id\": \"{{steps.parse.id}}\", \"record\": {{{steps.merge}}}}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/working_hours",
+      "method": "PATCH",
+      "description": "Admin: partial-update a working-hours row.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_update_working_hours",
+        "description": "Update a scheduling_working_hours row. Overlays only the fields the client sent.",
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {}
+          }
+        ],
+        "steps": [
+          {
+            "id": "parse",
+            "name": "parse",
+            "handlerType": "form_handler",
+            "config": {
+              "fields": {
+                "id": {
+                  "type": "string",
+                  "required": true
+                },
+                "end_time": {
+                  "type": "string",
+                  "required": false
+                },
+                "start_time": {
+                  "type": "string",
+                  "required": false
+                },
+                "day_of_week": {
+                  "type": "number",
+                  "required": false
+                },
+                "resource_id": {
+                  "type": "string",
+                  "required": false
+                }
+              }
+            }
+          },
+          {
+            "id": "existing",
+            "name": "existing",
+            "handlerType": "data_query",
+            "config": {
+              "recordId": "steps.parse.id",
+              "schemaId": "{{scheduling_working_hours}}"
+            }
+          },
+          {
+            "id": "merge",
+            "name": "merge",
+            "handlerType": "function_handler",
+            "config": {
+              "code": "function handler({ steps, request }) {\n  var existing = steps.existing || {};\n  var parse = steps.parse || {};\n  var body = (request && request.body) || {};\n  var fields = ['resource_id','day_of_week','start_time','end_time'];\n  var out = { id: parse.id };\n  for (var i = 0; i < fields.length; i++) {\n    var f = fields[i];\n    var sent = Object.prototype.hasOwnProperty.call(body, f);\n    out[f] = sent ? parse[f] : existing[f];\n  }\n  return out;\n}"
+            }
+          },
+          {
+            "id": "update",
+            "name": "update",
+            "handlerType": "data_update",
+            "config": {
+              "fields": {
+                "end_time": "steps.merge.end_time",
+                "start_time": "steps.merge.start_time",
+                "day_of_week": "steps.merge.day_of_week",
+                "resource_id": "steps.merge.resource_id"
+              },
+              "recordId": "steps.parse.id",
+              "schemaId": "{{scheduling_working_hours}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"id\": \"{{steps.parse.id}}\", \"record\": {{{steps.merge}}}}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/time_off",
+      "method": "PATCH",
+      "description": "Admin: partial-update a time-off row.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_update_time_off",
+        "description": "Update a scheduling_time_off row. Overlays only the fields the client sent.",
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {}
+          }
+        ],
+        "steps": [
+          {
+            "id": "parse",
+            "name": "parse",
+            "handlerType": "form_handler",
+            "config": {
+              "fields": {
+                "id": {
+                  "type": "string",
+                  "required": true
+                },
+                "reason": {
+                  "type": "string",
+                  "required": false
+                },
+                "ends_at": {
+                  "type": "string",
+                  "required": false
+                },
+                "starts_at": {
+                  "type": "string",
+                  "required": false
+                },
+                "resource_id": {
+                  "type": "string",
+                  "required": false
+                }
+              }
+            }
+          },
+          {
+            "id": "existing",
+            "name": "existing",
+            "handlerType": "data_query",
+            "config": {
+              "recordId": "steps.parse.id",
+              "schemaId": "{{scheduling_time_off}}"
+            }
+          },
+          {
+            "id": "merge",
+            "name": "merge",
+            "handlerType": "function_handler",
+            "config": {
+              "code": "function handler({ steps, request }) {\n  var existing = steps.existing || {};\n  var parse = steps.parse || {};\n  var body = (request && request.body) || {};\n  var fields = ['resource_id','starts_at','ends_at','reason'];\n  var out = { id: parse.id };\n  for (var i = 0; i < fields.length; i++) {\n    var f = fields[i];\n    var sent = Object.prototype.hasOwnProperty.call(body, f);\n    out[f] = sent ? parse[f] : existing[f];\n  }\n  return out;\n}"
+            }
+          },
+          {
+            "id": "update",
+            "name": "update",
+            "handlerType": "data_update",
+            "config": {
+              "fields": {
+                "reason": "steps.merge.reason",
+                "ends_at": "steps.merge.ends_at",
+                "starts_at": "steps.merge.starts_at",
+                "resource_id": "steps.merge.resource_id"
+              },
+              "recordId": "steps.parse.id",
+              "schemaId": "{{scheduling_time_off}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"id\": \"{{steps.parse.id}}\", \"record\": {{{steps.merge}}}}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/services",
+      "method": "DELETE",
+      "description": "Admin: hard-delete a service. Prefer soft-delete via PATCH active=false in the UI.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_delete_service",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "parse",
+            "name": "parse",
+            "handlerType": "form_handler",
+            "config": {
+              "fields": {
+                "id": {
+                  "type": "string",
+                  "required": true
+                }
+              }
+            }
+          },
+          {
+            "id": "delete",
+            "name": "delete",
+            "handlerType": "data_delete",
+            "config": {
+              "recordId": "steps.parse.id",
+              "schemaId": "{{scheduling_service}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"success\": true, \"id\": \"{{steps.parse.id}}\"}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/resources",
+      "method": "DELETE",
+      "description": "Admin: hard-delete a resource. Prefer soft-delete (active=false) for resources with bookings.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_delete_resource",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "parse",
+            "name": "parse",
+            "handlerType": "form_handler",
+            "config": {
+              "fields": {
+                "id": {
+                  "type": "string",
+                  "required": true
+                }
+              }
+            }
+          },
+          {
+            "id": "delete",
+            "name": "delete",
+            "handlerType": "data_delete",
+            "config": {
+              "recordId": "steps.parse.id",
+              "schemaId": "{{scheduling_resource}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"success\": true, \"id\": \"{{steps.parse.id}}\"}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/resource_services",
+      "method": "DELETE",
+      "description": "Admin: delete a resource-service link.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_delete_resource_service",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "parse",
+            "name": "parse",
+            "handlerType": "form_handler",
+            "config": {
+              "fields": {
+                "id": {
+                  "type": "string",
+                  "required": true
+                }
+              }
+            }
+          },
+          {
+            "id": "delete",
+            "name": "delete",
+            "handlerType": "data_delete",
+            "config": {
+              "recordId": "steps.parse.id",
+              "schemaId": "{{scheduling_resource_service}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"success\": true, \"id\": \"{{steps.parse.id}}\"}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/working_hours",
+      "method": "DELETE",
+      "description": "Admin: delete a working-hours row.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_delete_working_hours",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "parse",
+            "name": "parse",
+            "handlerType": "form_handler",
+            "config": {
+              "fields": {
+                "id": {
+                  "type": "string",
+                  "required": true
+                }
+              }
+            }
+          },
+          {
+            "id": "delete",
+            "name": "delete",
+            "handlerType": "data_delete",
+            "config": {
+              "recordId": "steps.parse.id",
+              "schemaId": "{{scheduling_working_hours}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"success\": true, \"id\": \"{{steps.parse.id}}\"}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/time_off",
+      "method": "DELETE",
+      "description": "Admin: delete a time-off row.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_delete_time_off",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "parse",
+            "name": "parse",
+            "handlerType": "form_handler",
+            "config": {
+              "fields": {
+                "id": {
+                  "type": "string",
+                  "required": true
+                }
+              }
+            }
+          },
+          {
+            "id": "delete",
+            "name": "delete",
+            "handlerType": "data_delete",
+            "config": {
+              "recordId": "steps.parse.id",
+              "schemaId": "{{scheduling_time_off}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"success\": true, \"id\": \"{{steps.parse.id}}\"}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/settings",
+      "method": "GET",
+      "description": "Admin: read the singleton scheduling settings record.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_get_settings",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "list",
+            "name": "list",
+            "handlerType": "data_query",
+            "config": {
+              "pageSize": 1,
+              "schemaId": "{{scheduling_settings}}"
+            }
+          },
+          {
+            "id": "extract",
+            "name": "extract",
+            "handlerType": "function_handler",
+            "config": {
+              "code": "function handler({ steps }) {\n  var rows = steps.list || [];\n  return { record: rows[0] || null };\n}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"record\": {{{steps.extract.record}}}}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/settings",
+      "method": "PATCH",
+      "description": "Admin: partial-update the singleton scheduling settings. labels is a json field so we skip form_handler and merge directly from request.body.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_update_settings",
+        "description": null,
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {
+              "roles": [
+                "admin"
+              ]
+            }
+          }
+        ],
+        "steps": [
+          {
+            "id": "lookup",
+            "name": "lookup",
+            "handlerType": "data_query",
+            "config": {
+              "pageSize": 1,
+              "schemaId": "{{scheduling_settings}}"
+            }
+          },
+          {
+            "id": "merge",
+            "name": "merge",
+            "handlerType": "function_handler",
+            "config": {
+              "code": "function handler({ request, steps }) {\n  var existing = (steps.lookup && steps.lookup[0]) || {};\n  var body = request.body || {};\n  var fields = ['timezone','slot_granularity_minutes','min_lead_time_minutes','max_advance_days','cancellation_window_hours','vertical_preset','labels'];\n  var out = {};\n  for (var i = 0; i < fields.length; i++) {\n    var f = fields[i];\n    if (body[f] !== undefined && body[f] !== '') {\n      out[f] = body[f];\n    } else {\n      out[f] = existing[f];\n    }\n  }\n  return { id: existing.id, merged: out };\n}"
+            }
+          },
+          {
+            "id": "update",
+            "name": "update",
+            "handlerType": "data_update",
+            "config": {
+              "fields": {
+                "labels": "steps.merge.merged.labels",
+                "timezone": "steps.merge.merged.timezone",
+                "vertical_preset": "steps.merge.merged.vertical_preset",
+                "max_advance_days": "steps.merge.merged.max_advance_days",
+                "min_lead_time_minutes": "steps.merge.merged.min_lead_time_minutes",
+                "slot_granularity_minutes": "steps.merge.merged.slot_granularity_minutes",
+                "cancellation_window_hours": "steps.merge.merged.cancellation_window_hours"
+              },
+              "recordId": "steps.merge.id",
+              "schemaId": "{{scheduling_settings}}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"record\": {{{steps.update}}}}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/me",
+      "method": "GET",
+      "description": "Returns whether the signed-in user is a scheduling admin, and total admin count for bootstrap UX.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_me",
+        "description": "Returns { isAdmin, totalAdmins } for the signed-in SuperTokens session. totalAdmins lets the UI surface a 'claim ownership' CTA when 0.",
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {}
+          }
+        ],
+        "steps": [
+          {
+            "id": "matches",
+            "name": "matches",
+            "handlerType": "data_query",
+            "config": {
+              "filters": {
+                "user_id": {
+                  "op": "eq",
+                  "value": "user.id"
+                }
+              },
+              "pageSize": 1,
+              "schemaId": "{{scheduling_admin_user}}"
+            }
+          },
+          {
+            "id": "count_total",
+            "name": "count_total",
+            "handlerType": "db_aggregate",
+            "config": {
+              "schemaId": "{{scheduling_admin_user}}",
+              "operation": "count"
+            }
+          },
+          {
+            "id": "compute",
+            "name": "compute",
+            "handlerType": "function_handler",
+            "config": {
+              "code": "function handler({ steps, user }) {\n  var matches = steps.matches || [];\n  var total = (steps.count_total && steps.count_total.result) || 0;\n  return {\n    isAdmin: matches.length > 0,\n    totalAdmins: total,\n    userId: user && user.id ? user.id : null,\n    email: user && user.email ? user.email : null\n  };\n}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{ \"isAdmin\": {{steps.compute.isAdmin}}, \"totalAdmins\": {{steps.compute.totalAdmins}}, \"userId\": \"{{steps.compute.userId}}\", \"email\": \"{{steps.compute.email}}\" }",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/claim",
+      "method": "POST",
+      "description": "Claim scheduling-admin ownership while the table is empty. Locks after first claim.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_claim",
+        "description": "First-claim bootstrap. While scheduling_admin_user is empty, the signed-in caller is added as the first admin. Subsequent calls 403. Boolean conditions are precomputed in a function_handler since pipeline conditions don't evaluate inline === comparisons.",
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {}
+          }
+        ],
+        "steps": [
+          {
+            "id": "count",
+            "name": "count",
+            "handlerType": "db_aggregate",
+            "config": {
+              "schemaId": "{{scheduling_admin_user}}",
+              "operation": "count"
+            }
+          },
+          {
+            "id": "compute",
+            "name": "compute",
+            "handlerType": "function_handler",
+            "config": {
+              "code": "function handler({ steps, user }) {\n  var c = (steps.count && steps.count.result) || 0;\n  return {\n    canClaim: c === 0,\n    alreadyClaimed: c > 0,\n    userId: user && user.id ? user.id : '',\n    email: user && user.email ? user.email : ''\n  };\n}"
+            }
+          },
+          {
+            "id": "create",
+            "name": "create",
+            "handlerType": "data_create",
+            "config": {
+              "fields": {
+                "email": "steps.compute.email",
+                "user_id": "steps.compute.userId"
+              },
+              "schemaId": "{{scheduling_admin_user}}",
+              "condition": "steps.compute.canClaim"
+            }
+          },
+          {
+            "id": "respond_claimed",
+            "name": "respond_claimed",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"success\": true, \"isAdmin\": true, \"message\": \"You are the scheduling admin.\"}",
+              "status": 200,
+              "condition": "steps.compute.canClaim"
+            }
+          },
+          {
+            "id": "respond_already",
+            "name": "respond_already",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"success\": false, \"isAdmin\": false, \"message\": \"Scheduling admin already claimed by another user.\"}",
+              "status": 403,
+              "condition": "steps.compute.alreadyClaimed"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/admin/google/calendars",
+      "method": "GET",
+      "description": "Lists Google sub-calendars accessible via the project's CE-stored Google Calendar integration. Used by the admin scheduling page to populate the per-stylist calendar dropdown.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_admin_google_calendars",
+        "description": "List Google sub-calendars from the project's connected Google account. Returns { calendars: [{id, summary, primary}], email, skipped } in the shape the useGoogleCalendarConnect hook expects. optional: true on the google_calendar step so a missing integration returns skipped:true with an empty list, not an error.",
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {}
+          }
+        ],
+        "steps": [
+          {
+            "id": "list",
+            "name": "list",
+            "handlerType": "google_calendar",
+            "config": {
+              "action": "list_calendars",
+              "optional": true
+            }
+          },
+          {
+            "id": "compute",
+            "name": "compute",
+            "handlerType": "function_handler",
+            "config": {
+              "code": "function handler({ steps }) {\n  var raw = steps.list || {};\n  var src = raw.items || raw.calendars || [];\n  var out = [];\n  for (var i = 0; i < src.length; i++) {\n    var c = src[i];\n    if (!c || !c.id) continue;\n    out.push({\n      id: c.id,\n      summary: c.summary || c.summaryOverride || c.id,\n      primary: c.primary === true\n    });\n  }\n  return {\n    calendars: out,\n    email: raw.email || null,\n    skipped: raw.skipped === true\n  };\n}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{{{steps.compute}}}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pathPattern": "/api/scheduling/my-bookings",
+      "method": "GET",
+      "description": "Returns confirmed bookings for the signed-in user, denormalized with service + resource names so the client doesn't need a second round trip.",
+      "proxyType": "pipeline",
+      "timeout": 30000,
+      "pipelineConfig": {
+        "name": "scheduling_my_bookings",
+        "description": "List the signed-in user's confirmed bookings (upcoming + past), ordered by starts_at asc, with service.name + resource.name + a manage URL inlined so the frontend can render directly without further queries.",
+        "validators": [
+          {
+            "type": "auth_required",
+            "config": {}
+          }
+        ],
+        "steps": [
+          {
+            "id": "allServices",
+            "name": "allServices",
+            "handlerType": "data_query",
+            "config": {
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_service}}"
+            }
+          },
+          {
+            "id": "allResources",
+            "name": "allResources",
+            "handlerType": "data_query",
+            "config": {
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_resource}}"
+            }
+          },
+          {
+            "id": "allBookings",
+            "name": "allBookings",
+            "handlerType": "data_query",
+            "config": {
+              "filters": {
+                "status": {
+                  "op": "eq",
+                  "value": "confirmed"
+                }
+              },
+              "pageSize": 1000,
+              "schemaId": "{{scheduling_booking}}"
+            }
+          },
+          {
+            "id": "compute",
+            "name": "compute",
+            "handlerType": "function_handler",
+            "config": {
+              "code": "function handler({ steps, user }) {\n  var bookings = steps.allBookings || [];\n  var services = steps.allServices || [];\n  var resources = steps.allResources || [];\n  var userId = (user && user.id) ? user.id : '';\n\n  var serviceMap = {};\n  for (var si = 0; si < services.length; si++) {\n    serviceMap[services[si].id] = services[si];\n  }\n  var resourceMap = {};\n  for (var ri = 0; ri < resources.length; ri++) {\n    resourceMap[resources[ri].id] = resources[ri];\n  }\n\n  var out = [];\n  for (var i = 0; i < bookings.length; i++) {\n    var b = bookings[i];\n    if (b.user_id !== userId) continue;\n    var svc = serviceMap[b.service_id] || {};\n    var res = resourceMap[b.resource_id] || {};\n    out.push({\n      id: b.id,\n      service_id: b.service_id,\n      service_name: svc.name || '',\n      resource_id: b.resource_id,\n      resource_name: res.name || '',\n      starts_at: b.starts_at,\n      ends_at: b.ends_at,\n      status: b.status,\n      notes: b.notes || null,\n      reschedule_token: b.reschedule_token || null,\n      manage_url: b.reschedule_token ? ('/manage?token=' + b.reschedule_token) : null,\n      google_event_id: b.google_event_id || null,\n      created_at: b.createdAt || null\n    });\n  }\n  out.sort(function(a, b) {\n    if (a.starts_at < b.starts_at) return -1;\n    if (a.starts_at > b.starts_at) return 1;\n    return 0;\n  });\n  return { bookings: out, count: out.length };\n}"
+            }
+          },
+          {
+            "id": "respond",
+            "name": "respond",
+            "handlerType": "response_handler",
+            "config": {
+              "body": "{\"bookings\": {{{steps.compute.bookings}}}, \"count\": {{steps.compute.count}}}",
+              "status": 200
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

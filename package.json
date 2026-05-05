@@ -11,10 +11,13 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./bffless/scheduling/schemas.json": "./bffless/scheduling/schemas.json",
+    "./bffless/scheduling/pipelines.json": "./bffless/scheduling/pipelines.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "bffless"
   ],
   "scripts": {
     "build": "tsup",
