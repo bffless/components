@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.1](https://github.com/bffless/components/compare/v0.11.0...v0.11.1) (2026-05-05)
+
+
+### Bug Fixes
+
+* dedup concurrent fetchSession + fetchLoginMethods calls ([e46272c](https://github.com/bffless/components/commit/e46272c1f17e9cf757f17fff1c409e6d29507d94))
+* dedup concurrent fetchSession + fetchLoginMethods calls ([3a2bcca](https://github.com/bffless/components/commit/3a2bccae52a6efee9e6314876430140d51fa9cfd))
+
 ## [0.11.0](https://github.com/bffless/components/compare/v0.10.3...v0.11.0) (2026-05-05)
 
 
