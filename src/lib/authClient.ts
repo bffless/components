@@ -125,7 +125,7 @@ async function fetchSessionOnce(opts: AuthFetchOptions): Promise<Response | null
  * If the refresh itself returns non-OK we treat the user as signed-out
  * without bubbling an error — same as the no-cookie case.
  */
-export async function fetchSession(opts: AuthFetchOptions): Promise<SessionResult> {
+async function fetchSessionImpl(opts: AuthFetchOptions): Promise<SessionResult> {
   let res = await fetchSessionOnce(opts);
   if (!res) return { user: null };
 
@@ -140,6 +140,29 @@ export async function fetchSession(opts: AuthFetchOptions): Promise<SessionResul
   const data = await readJson(res);
   if (!data) return { user: null };
   return { user: normalizeUser(data.user) };
+}
+
+// Per-basePath in-flight dedup so multiple useAuth instances mounting on the
+// same render tick (e.g. an AuthDialog island in the header + a gated content
+// island on the page) share a single network request. The cache entry is
+// cleared as soon as the request settles, so subsequent mounts after that
+// trigger a fresh fetch — this is just to collapse simultaneous parallel
+// fetches, not to cache results across time.
+//
+// Signal is intentionally NOT forwarded when deduping — aborting one caller
+// would also reject every other caller awaiting the shared promise. useAuth's
+// own `cancelled` closure flag handles unmount-during-fetch correctness.
+const sessionInFlight = new Map<string, Promise<SessionResult>>();
+
+export function fetchSession(opts: AuthFetchOptions): Promise<SessionResult> {
+  const key = opts.basePath;
+  const existing = sessionInFlight.get(key);
+  if (existing) return existing;
+  const p = fetchSessionImpl({ basePath: opts.basePath }).finally(() => {
+    sessionInFlight.delete(key);
+  });
+  sessionInFlight.set(key, p);
+  return p;
 }
 
 export async function signIn(
@@ -372,13 +395,12 @@ function defaultLoginMethods(): LoginMethods {
   };
 }
 
-export async function fetchLoginMethods(opts: AuthFetchOptions): Promise<LoginMethods> {
+async function fetchLoginMethodsImpl(opts: AuthFetchOptions): Promise<LoginMethods> {
   let res: Response;
   try {
     res = await fetch(`${opts.basePath}/login-methods`, {
       method: 'GET',
       credentials: 'include',
-      signal: opts.signal,
     });
   } catch {
     return defaultLoginMethods();
@@ -404,5 +426,19 @@ export async function fetchLoginMethods(opts: AuthFetchOptions): Promise<LoginMe
     workspace,
     ...(data?.project ? { project: data.project } : {}),
   };
+}
+
+// Per-basePath in-flight dedup; see fetchSession above for the rationale.
+const loginMethodsInFlight = new Map<string, Promise<LoginMethods>>();
+
+export function fetchLoginMethods(opts: AuthFetchOptions): Promise<LoginMethods> {
+  const key = opts.basePath;
+  const existing = loginMethodsInFlight.get(key);
+  if (existing) return existing;
+  const p = fetchLoginMethodsImpl({ basePath: opts.basePath }).finally(() => {
+    loginMethodsInFlight.delete(key);
+  });
+  loginMethodsInFlight.set(key, p);
+  return p;
 }
 
