@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.0](https://github.com/bffless/components/compare/v0.10.3...v0.11.0) (2026-05-05)
+
+
+### Features
+
+* ship bffless/scheduling install pack ([56797e6](https://github.com/bffless/components/commit/56797e6045a385ee05d8fd2fe2f4953af26c0bdd))
+* ship bffless/scheduling install pack ([4a32dfa](https://github.com/bffless/components/commit/4a32dfab084e336d353675165b2b027096878287))
+
 ## [0.10.3](https://github.com/bffless/components/compare/v0.10.2...v0.10.3) (2026-05-04)
 
 
