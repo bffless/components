@@ -5,7 +5,17 @@ export default defineConfig({
   // hooks/primitives at tree-shake time. Each src/*.ts(x) becomes its own
   // dist/*.js + dist/*.mjs, mirroring what tsc emitted before — but with
   // a real ESM build alongside the CJS one.
-  entry: ['src/**/*.ts', 'src/**/*.tsx'],
+  // Test files (`*.test.ts(x)` / `*.spec.ts(x)`) are excluded — they pull
+  // in dev-only test deps (jest-dom augmentation, RTL) and were both
+  // bloating dist/ and breaking the DTS pass at build time.
+  entry: [
+    'src/**/*.ts',
+    'src/**/*.tsx',
+    '!src/**/*.test.ts',
+    '!src/**/*.test.tsx',
+    '!src/**/*.spec.ts',
+    '!src/**/*.spec.tsx',
+  ],
   format: ['esm', 'cjs'],
   dts: true,
   sourcemap: true,
