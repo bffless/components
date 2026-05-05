@@ -513,7 +513,10 @@ substitution.
 Mandatory:
 
 - `pnpm typecheck` — no errors.
+- `pnpm test` — Vitest runs the hook + primitive tests (`src/**/*.test.{ts,tsx}`). New hooks/primitives should ship with at least one test covering the contract surface; bug fixes should ship with a regression test that fails before the fix and passes after.
 - `pnpm build` — produces `dist/` with both `.js` and `.d.ts`.
+
+CI runs all three on every PR via `.github/workflows/ci.yml`.
 
 Recommended for non-trivial changes:
 
