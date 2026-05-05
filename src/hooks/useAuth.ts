@@ -64,7 +64,7 @@ export interface UseAuthResult {
   pendingVerifyEmail: string | null;
 
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, redirectOverride?: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (password: string, token?: string) => Promise<void>;
   verifyEmail: (token?: string) => Promise<void>;
@@ -239,8 +239,18 @@ export function useAuth(opts: UseAuthOptions = {}): UseAuthResult {
   );
 
   const signUp = useCallback(
-    async (email: string, password: string) => {
-      const result = await wrapOp(() => signUpCall({ basePath }, { email, password }));
+    async (email: string, password: string, redirectOverride?: string) => {
+      // Default redirect to the current page so the verify-email flow can
+      // (1) bounce back here after the user clicks the email link, and
+      // (2) tell the backend which host they signed up from when the proxy
+      //     chain strips Origin/Referer (the backend uses this to construct
+      //     the email's verify link host: admin.<workspace>.<domain>).
+      const redirect =
+        redirectOverride ??
+        (typeof window !== 'undefined' && window.location ? window.location.href : undefined);
+      const result = await wrapOp(() =>
+        signUpCall({ basePath }, { email, password, redirect }),
+      );
       if (result.emailVerificationRequired) {
         setPendingVerifyEmail(result.user.email);
         setMode('verify-sent');
