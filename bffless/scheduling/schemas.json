@@ -1,0 +1,99 @@
+[
+  {
+    "name": "scheduling_service",
+    "description": "What customers can book. Generic primitive — store fields generic, render labels per scheduling_settings.vertical_preset (e.g. 'Service' / 'Stylist' for salons, 'Lesson' / 'Tutor' for tutoring).",
+    "fields": [
+      { "name": "name", "type": "string", "required": true },
+      { "name": "description", "type": "text", "required": false },
+      { "name": "duration_minutes", "type": "number", "required": true },
+      { "name": "buffer_before_minutes", "type": "number", "required": false },
+      { "name": "buffer_after_minutes", "type": "number", "required": false },
+      { "name": "price_cents", "type": "number", "required": false },
+      { "name": "color", "type": "string", "required": false },
+      { "name": "category", "type": "string", "required": false },
+      { "name": "active", "type": "boolean", "required": true },
+      { "name": "sort_order", "type": "number", "required": false }
+    ]
+  },
+  {
+    "name": "scheduling_resource",
+    "description": "Who/what provides the service (staff member, room, piece of equipment). google_calendar_id null means no Calendar mirror for this resource — booking still works DB-only.",
+    "fields": [
+      { "name": "name", "type": "string", "required": true },
+      { "name": "bio", "type": "text", "required": false },
+      { "name": "photo_url", "type": "string", "required": false },
+      { "name": "email", "type": "string", "required": false },
+      { "name": "google_calendar_id", "type": "string", "required": false },
+      { "name": "timezone", "type": "string", "required": false },
+      { "name": "active", "type": "boolean", "required": true },
+      { "name": "sort_order", "type": "number", "required": false }
+    ]
+  },
+  {
+    "name": "scheduling_resource_service",
+    "description": "M:N — which resources can perform which services. resource_id + service_id are the natural key (BFFless still assigns a row id).",
+    "fields": [
+      { "name": "resource_id", "type": "string", "required": true },
+      { "name": "service_id", "type": "string", "required": true }
+    ]
+  },
+  {
+    "name": "scheduling_working_hours",
+    "description": "Day-of-week schedule. Multiple rows per (resource_id, day_of_week) = split shifts (e.g. 09:00-13:00 + 14:00-18:00 with a lunch break). resource_id null = applies to all resources (site-wide).",
+    "fields": [
+      { "name": "resource_id", "type": "string", "required": false },
+      { "name": "day_of_week", "type": "number", "required": true },
+      { "name": "start_time", "type": "string", "required": true },
+      { "name": "end_time", "type": "string", "required": true }
+    ]
+  },
+  {
+    "name": "scheduling_time_off",
+    "description": "Blocked windows. Per-resource for vacations; resource_id null = site-wide holiday/closure.",
+    "fields": [
+      { "name": "resource_id", "type": "string", "required": false },
+      { "name": "starts_at", "type": "datetime", "required": true },
+      { "name": "ends_at", "type": "datetime", "required": true },
+      { "name": "reason", "type": "string", "required": false }
+    ]
+  },
+  {
+    "name": "scheduling_booking",
+    "description": "The actual appointment. DB-canonical — Google Calendar is a mirror, not the source of truth. reschedule_token = booking row id (used by /bookings/manage).",
+    "fields": [
+      { "name": "service_id", "type": "string", "required": true },
+      { "name": "resource_id", "type": "string", "required": true },
+      { "name": "customer_name", "type": "string", "required": true },
+      { "name": "customer_email", "type": "email", "required": true },
+      { "name": "customer_phone", "type": "string", "required": false },
+      { "name": "notes", "type": "text", "required": false },
+      { "name": "starts_at", "type": "datetime", "required": true },
+      { "name": "ends_at", "type": "datetime", "required": true },
+      { "name": "status", "type": "string", "required": true },
+      { "name": "google_event_id", "type": "string", "required": false },
+      { "name": "reschedule_token", "type": "string", "required": true },
+      { "name": "user_id", "type": "string", "required": false, "description": "SuperTokens user.id of the signed-in customer; null for anonymous bookings. Used by GET /api/scheduling/my-bookings to filter to the caller's bookings." }
+    ]
+  },
+  {
+    "name": "scheduling_settings",
+    "description": "Singleton site-wide behavior config. Provision a single row at first run; pipelines fetch via pageSize=1.",
+    "fields": [
+      { "name": "timezone", "type": "string", "required": true },
+      { "name": "slot_granularity_minutes", "type": "number", "required": true },
+      { "name": "min_lead_time_minutes", "type": "number", "required": false },
+      { "name": "max_advance_days", "type": "number", "required": false },
+      { "name": "cancellation_window_hours", "type": "number", "required": false },
+      { "name": "vertical_preset", "type": "string", "required": true },
+      { "name": "labels", "type": "json", "required": false }
+    ]
+  },
+  {
+    "name": "scheduling_admin_user",
+    "description": "Per-site allowlist of users who can edit scheduling business rules (services / stylists / hours / settings). Bootstrap via POST /api/scheduling/admin/claim while empty; locks after first claim. Distinct from BFFless platform admin (which gates content edits + build pipelines via /api/admin/toolbar).",
+    "fields": [
+      { "name": "user_id", "type": "string", "required": true },
+      { "name": "email", "type": "string", "required": true }
+    ]
+  }
+]
