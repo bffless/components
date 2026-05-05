@@ -201,7 +201,7 @@ export async function signIn(
 
 export async function signUp(
   opts: AuthFetchOptions,
-  body: { email: string; password: string },
+  body: { email: string; password: string; redirect?: string },
 ): Promise<SignUpResult> {
   let res: Response;
   try {
