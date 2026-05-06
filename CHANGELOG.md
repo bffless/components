@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.0](https://github.com/bffless/components/compare/v0.13.0...v0.14.0) (2026-05-06)
+
+
+### Features
+
+* **install:** add bffless-install CLI binary for install-pack provisioning ([5c29e29](https://github.com/bffless/components/commit/5c29e293ecafd5afaf5eed00158dea199f48c05b))
+* **install:** add bffless-install CLI binary for install-pack provisioning ([c1d6bbc](https://github.com/bffless/components/commit/c1d6bbc6da23efb6a4c619ebc36cd832a920d411))
+
 ## [0.13.0](https://github.com/bffless/components/compare/v0.12.0...v0.13.0) (2026-05-06)
 
 
