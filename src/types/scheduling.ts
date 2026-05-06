@@ -186,3 +186,22 @@ export interface SchedulingCalendarSummary {
   foregroundColor?: string;
   accessRole?: string;
 }
+
+// Wire shape returned by GET /api/scheduling/my-bookings — the
+// scheduling_my_bookings pipeline denormalizes service.name + resource.name
+// onto each row and inlines a manage_url so the UI can render directly.
+export interface SchedulingMyBookingRow {
+  id: string;
+  service_id: string;
+  service_name: string;
+  resource_id: string;
+  resource_name: string;
+  starts_at: string;
+  ends_at: string;
+  status: SchedulingBookingStatus | string;
+  notes: string | null;
+  reschedule_token: string | null;
+  manage_url: string | null;
+  google_event_id?: string | null;
+  created_at?: string | null;
+}

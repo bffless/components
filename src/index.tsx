@@ -88,6 +88,12 @@ export type {
   GoogleCalendarConnectStatus,
 } from './hooks/useGoogleCalendarConnect';
 
+export { useMyBookings } from './hooks/useMyBookings';
+export type {
+  UseMyBookingsOptions,
+  UseMyBookingsResult,
+} from './hooks/useMyBookings';
+
 // Headless primitives (className-pass-through; lib never imports a CSS framework)
 export { PhotoboothBanner } from './primitives/Wall/PhotoboothBanner';
 export type { PhotoboothBannerProps } from './primitives/Wall/PhotoboothBanner';
@@ -144,6 +150,18 @@ export type {
   SchedulingCalendarConnectProps,
 } from './primitives/Scheduling/Admin';
 
+export { MyBookingsList } from './primitives/Scheduling/MyBookingsList';
+export type {
+  MyBookingsListProps,
+  MyBookingsListLoadingProps,
+  MyBookingsListErrorProps,
+  MyBookingsListEmptyProps,
+  MyBookingsListUpcomingProps,
+  MyBookingsListPastProps,
+  MyBookingsItemHelpers,
+  MyBookingsItemRenderer,
+} from './primitives/Scheduling/MyBookingsList';
+
 export { AuthDialog } from './primitives/Auth/AuthDialog';
 export type {
   AuthDialogProps,
@@ -191,6 +209,7 @@ export type {
   SchedulingConfirmedBooking,
   SchedulingState,
   SchedulingCalendarSummary,
+  SchedulingMyBookingRow,
   Service,
   Resource,
   Slot,
