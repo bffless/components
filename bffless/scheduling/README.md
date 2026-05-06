@@ -112,21 +112,9 @@ The pack ships with a `bffless-install` CLI binary (also part of `@bffless/compo
 
    Local dev never runs the CLI; the working tree is throwaway in CI. If you do run it locally for testing, `git diff` will flag the merged content and you can revert before committing.
 
-2. **Seed `scheduling_settings`.** Provision-site doesn't seed singleton rows. After the first deploy, an admin must PATCH `/api/scheduling/admin/settings` once with at minimum:
+2. **`scheduling_settings` seeds itself on first save.** The PATCH `/api/scheduling/admin/settings` pipeline is an upsert — when no row exists yet, the pipeline CREATES one seeded with sane defaults overlaid by the request body. The first admin's `<SchedulingSettingsPanel>` submission is enough to bring the singleton into existence; subsequent saves UPDATE it. No manual MCP / curl seeding needed.
 
-   ```json
-   {
-     "timezone": "America/New_York",
-     "slot_granularity_minutes": 30,
-     "min_lead_time_minutes": 60,
-     "max_advance_days": 60,
-     "cancellation_window_hours": 24,
-     "vertical_preset": "salon",
-     "labels": {}
-   }
-   ```
-
-   The first admin can do this through `<SchedulingSettingsPanel>` — submitting the panel for the first time creates the row.
+   The pipeline's defaults if the body omits a field and no row exists: `America/New_York` timezone, 30-min granularity, 60-min lead time, 60-day max advance, 24-hr cancellation window, `salon` preset, `{}` labels.
 
 5. **Mount the React primitives.** From the template's React island:
 

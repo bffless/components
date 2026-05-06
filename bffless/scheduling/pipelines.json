@@ -1958,7 +1958,7 @@
       "timeout": 30000,
       "pipelineConfig": {
         "name": "scheduling_admin_update_settings",
-        "description": null,
+        "description": "Upsert the singleton scheduling settings row. labels is a json field so we skip form_handler and merge directly from request.body. If no row exists yet (fresh provision), we CREATE one seeded with sane defaults overlaid by the request body; otherwise we UPDATE the existing row.",
         "validators": [
           {
             "type": "auth_required",
@@ -1984,7 +1984,7 @@
             "name": "merge",
             "handlerType": "function_handler",
             "config": {
-              "code": "function handler({ request, steps }) {\n  var existing = (steps.lookup && steps.lookup[0]) || {};\n  var body = request.body || {};\n  var fields = ['timezone','slot_granularity_minutes','min_lead_time_minutes','max_advance_days','cancellation_window_hours','vertical_preset','labels'];\n  var out = {};\n  for (var i = 0; i < fields.length; i++) {\n    var f = fields[i];\n    if (body[f] !== undefined && body[f] !== '') {\n      out[f] = body[f];\n    } else {\n      out[f] = existing[f];\n    }\n  }\n  return { id: existing.id, merged: out };\n}"
+              "code": "function handler({ request, steps }) {\n  var existing = (steps.lookup && steps.lookup[0]) || null;\n  var body = request.body || {};\n  var fields = ['timezone','slot_granularity_minutes','min_lead_time_minutes','max_advance_days','cancellation_window_hours','vertical_preset','labels'];\n  var defaults = {\n    timezone: 'America/New_York',\n    slot_granularity_minutes: 30,\n    min_lead_time_minutes: 60,\n    max_advance_days: 60,\n    cancellation_window_hours: 24,\n    vertical_preset: 'salon',\n    labels: {}\n  };\n  var out = {};\n  for (var i = 0; i < fields.length; i++) {\n    var f = fields[i];\n    if (body[f] !== undefined && body[f] !== '') {\n      out[f] = body[f];\n    } else if (existing && existing[f] !== undefined && existing[f] !== null) {\n      out[f] = existing[f];\n    } else {\n      out[f] = defaults[f];\n    }\n  }\n  return {\n    id: existing ? existing.id : null,\n    merged: out,\n    hasExisting: !!existing,\n    noExisting: !existing\n  };\n}"
             }
           },
           {
@@ -1992,6 +1992,7 @@
             "name": "update",
             "handlerType": "data_update",
             "config": {
+              "condition": "steps.merge.hasExisting",
               "fields": {
                 "labels": "steps.merge.merged.labels",
                 "timezone": "steps.merge.merged.timezone",
@@ -2006,11 +2007,37 @@
             }
           },
           {
+            "id": "create",
+            "name": "create",
+            "handlerType": "data_create",
+            "config": {
+              "condition": "steps.merge.noExisting",
+              "fields": {
+                "labels": "steps.merge.merged.labels",
+                "timezone": "steps.merge.merged.timezone",
+                "vertical_preset": "steps.merge.merged.vertical_preset",
+                "max_advance_days": "steps.merge.merged.max_advance_days",
+                "min_lead_time_minutes": "steps.merge.merged.min_lead_time_minutes",
+                "slot_granularity_minutes": "steps.merge.merged.slot_granularity_minutes",
+                "cancellation_window_hours": "steps.merge.merged.cancellation_window_hours"
+              },
+              "schemaId": "{{scheduling_settings}}"
+            }
+          },
+          {
+            "id": "result",
+            "name": "result",
+            "handlerType": "function_handler",
+            "config": {
+              "code": "function handler({ steps }) {\n  return steps.update || steps.create || null;\n}"
+            }
+          },
+          {
             "id": "respond",
             "name": "respond",
             "handlerType": "response_handler",
             "config": {
-              "body": "{\"record\": {{{steps.update}}}}",
+              "body": "{\"record\": {{{steps.result}}}}",
               "status": 200
             }
           }
