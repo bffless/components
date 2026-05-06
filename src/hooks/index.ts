@@ -80,3 +80,6 @@ export type {
   UseGoogleCalendarConnectResult,
   GoogleCalendarConnectStatus,
 } from './useGoogleCalendarConnect';
+
+export { useMyBookings } from './useMyBookings';
+export type { UseMyBookingsOptions, UseMyBookingsResult } from './useMyBookings';

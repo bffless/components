@@ -20,3 +20,15 @@ export type {
   SchedulingResourcesTableProps,
   SchedulingCalendarConnectProps,
 } from './Admin';
+
+export { MyBookingsList } from './MyBookingsList';
+export type {
+  MyBookingsListProps,
+  MyBookingsListLoadingProps,
+  MyBookingsListErrorProps,
+  MyBookingsListEmptyProps,
+  MyBookingsListUpcomingProps,
+  MyBookingsListPastProps,
+  MyBookingsItemHelpers,
+  MyBookingsItemRenderer,
+} from './MyBookingsList';

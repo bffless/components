@@ -48,9 +48,9 @@ Field definitions live in [`schemas.json`](./schemas.json).
 
 ### Member (auth-required)
 
-| Method | Path | Pipeline |
-|---|---|---|
-| GET | `/api/scheduling/my-bookings` | `scheduling_my_bookings` — returns the signed-in user's bookings (filtered by `user_id`), denormalized with service + resource names + manage URL |
+| Method | Path | Pipeline | Frontend hook + primitive |
+|---|---|---|---|
+| GET | `/api/scheduling/my-bookings` | `scheduling_my_bookings` — returns the signed-in user's bookings (filtered by `user_id`), denormalized with service + resource names + manage URL | `useMyBookings()` + `<MyBookingsList>` (compound primitive with `.Loading` / `.Error` / `.Empty` / `.Upcoming` / `.Past`, render-prop on `Upcoming`/`Past` `renderItem`) |
 
 ### Admin gate (per-site, not platform)
 
@@ -115,15 +115,41 @@ Pipeline JSON lives in [`pipelines.json`](./pipelines.json).
 
    ```tsx
    import {
+     // Public booking flow
      useScheduling,
+     BookingFlow,
+     // Member account page (signed-in customer's own bookings)
+     useMyBookings,
+     MyBookingsList,
+     // Admin
      useSchedulingAdmin,
      useGoogleCalendarConnect,
-     BookingFlow,
      SchedulingCalendarConnect,
      SchedulingServicesTable,
      SchedulingResourcesTable,
      SchedulingSettingsPanel,
    } from '@bffless/components';
+   ```
+
+   Quick `<MyBookingsList>` shape (style with className strings to match the template's palette):
+
+   ```tsx
+   const bookings = useMyBookings();
+   <MyBookingsList bookings={bookings} className="space-y-8">
+     <MyBookingsList.Loading />
+     <MyBookingsList.Error className="…" />
+     <MyBookingsList.Empty>No bookings yet — <a href="/book">book one</a>.</MyBookingsList.Empty>
+     <MyBookingsList.Upcoming
+       renderItem={(b, { cancel, cancelling }) => (
+         <BookingCard key={b.id} b={b} cancelling={cancelling} onCancel={cancel} />
+       )}
+     >
+       <h3>Upcoming</h3>
+     </MyBookingsList.Upcoming>
+     <MyBookingsList.Past renderItem={(b) => <BookingCard key={b.id} b={b} muted />} >
+       <h3>Past</h3>
+     </MyBookingsList.Past>
+   </MyBookingsList>
    ```
 
    See `salon-luxe-salon-luxe` demo (`src/components/BookingIsland.tsx`, `src/components/AdminSchedulingIsland.tsx`) for a full end-to-end wiring with style overrides.
