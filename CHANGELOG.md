@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.0](https://github.com/bffless/components/compare/v0.11.2...v0.12.0) (2026-05-06)
+
+
+### Features
+
+* **scheduling:** add useMyBookings hook + MyBookingsList primitive ([09cbe2d](https://github.com/bffless/components/commit/09cbe2dc17d0b5cd4177fe79d42c30cf30e90886))
+* **scheduling:** add useMyBookings hook + MyBookingsList primitive ([bbf2ef2](https://github.com/bffless/components/commit/bbf2ef2da81cf104b4b0a87912360593f4a614f4))
+
 ## [0.11.2](https://github.com/bffless/components/compare/v0.11.1...v0.11.2) (2026-05-05)
 
 
