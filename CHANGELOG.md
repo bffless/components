@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.0](https://github.com/bffless/components/compare/v0.12.0...v0.13.0) (2026-05-06)
+
+
+### Features
+
+* **scheduling:** SettingsPanel compound rewrite + useSchedulingAdminGate ([2e12b71](https://github.com/bffless/components/commit/2e12b71d77c897a80f6a0fb09339537ee33ae2bb))
+* **scheduling:** SettingsPanel compound rewrite + useSchedulingAdminGate ([0a599b3](https://github.com/bffless/components/commit/0a599b34296a281ef06a673f61e1a6f83401f956))
+
 ## [0.12.0](https://github.com/bffless/components/compare/v0.11.2...v0.12.0) (2026-05-06)
 
 
