@@ -83,3 +83,10 @@ export type {
 
 export { useMyBookings } from './useMyBookings';
 export type { UseMyBookingsOptions, UseMyBookingsResult } from './useMyBookings';
+
+export { useSchedulingAdminGate } from './useSchedulingAdminGate';
+export type {
+  UseSchedulingAdminGateOptions,
+  UseSchedulingAdminGateResult,
+  SchedulingAdminGateStatus,
+} from './useSchedulingAdminGate';

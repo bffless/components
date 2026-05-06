@@ -59,6 +59,8 @@ Field definitions live in [`schemas.json`](./schemas.json).
 | GET | `/api/scheduling/admin/me` | `scheduling_admin_me` | session |
 | POST | `/api/scheduling/admin/claim` | `scheduling_admin_claim` | session — open while `scheduling_admin_user` is empty, 403 after |
 
+Frontend: `useSchedulingAdminGate({ auth })` exposes the discriminated `status: 'loading' | 'signed_out' | 'not_admin_no_one_claimed' | 'not_admin' | 'admin'` plus `claim()`. Consumers render one branch per status; the hook handles the GET /admin/me probe + POST /admin/claim dance.
+
 ### Admin Google integration
 
 | Method | Path | Pipeline |
@@ -121,15 +123,58 @@ Pipeline JSON lives in [`pipelines.json`](./pipelines.json).
      // Member account page (signed-in customer's own bookings)
      useMyBookings,
      MyBookingsList,
-     // Admin
+     // Admin gate (signed-in / claim / admin status machine)
+     useSchedulingAdminGate,
+     // Admin data + integrations
      useSchedulingAdmin,
      useGoogleCalendarConnect,
      SchedulingCalendarConnect,
      SchedulingServicesTable,
      SchedulingResourcesTable,
+     // Settings panel — compound primitive with sub-primitives per field
      SchedulingSettingsPanel,
+     DEFAULT_TIMEZONE_GROUPS,
    } from '@bffless/components';
    ```
+
+   Admin gate quick shape:
+
+   ```tsx
+   const auth = useAuth();
+   const gate = useSchedulingAdminGate({ auth });
+   const admin = useSchedulingAdmin({ skipInitialLoad: !gate.isAdmin });
+   const connect = useGoogleCalendarConnect({ skipInitialLoad: !gate.isAdmin });
+
+   switch (gate.status) {
+     case 'loading': return <Pending />;
+     case 'signed_out': return <SignInPrompt />;
+     case 'not_admin_no_one_claimed':
+       return <ClaimPrompt onClaim={gate.claim} claiming={gate.claiming} error={gate.error} />;
+     case 'not_admin': return <AskOwnerCopy />;
+     case 'admin': return <AdminUI admin={admin} connect={connect} />;
+   }
+   ```
+
+   Settings panel compound shape:
+
+   ```tsx
+   <SchedulingSettingsPanel admin={admin} className="grid sm:grid-cols-2 gap-x-5 gap-y-5">
+     <SchedulingSettingsPanel.Timezone className="sm:col-span-2" help="..." />
+     <SchedulingSettingsPanel.Granularity help="..." />
+     <SchedulingSettingsPanel.VerticalPreset help="..." />
+     <SchedulingSettingsPanel.MinLeadTime help="..." />
+     <SchedulingSettingsPanel.MaxAdvance help="..." />
+     <SchedulingSettingsPanel.CancellationWindow className="sm:col-span-2" help="..." />
+     <SchedulingSettingsPanel.Labels className="sm:col-span-2" help="..." />
+     <SchedulingSettingsPanel.Error className="sm:col-span-2 ..." />
+     <div className="sm:col-span-2 flex items-center gap-4">
+       <SchedulingSettingsPanel.Submit className="...">Save settings</SchedulingSettingsPanel.Submit>
+       <SchedulingSettingsPanel.Saved className="text-xs text-accent" />
+     </div>
+   </SchedulingSettingsPanel>
+   ```
+
+   `Timezone` defaults to `groups={DEFAULT_TIMEZONE_GROUPS}` (curated regional dropdown + Custom… fallback + browser-tz shortcut). Pass `groups={null}` for a free-text input. Pass `presets`/`options` to the preset/granularity sub-primitives as either `string[]` / `number[]` or `Array<{ value, label }>` for descriptive labels.
 
    Quick `<MyBookingsList>` shape (style with className strings to match the template's palette):
 

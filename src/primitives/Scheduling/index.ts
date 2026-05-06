@@ -16,6 +16,18 @@ export {
 } from './Admin';
 export type {
   SchedulingSettingsPanelProps,
+  SchedulingSettingsTimezoneProps,
+  SchedulingSettingsGranularityProps,
+  SchedulingSettingsGranularityOption,
+  SchedulingSettingsMinLeadTimeProps,
+  SchedulingSettingsMaxAdvanceProps,
+  SchedulingSettingsCancellationWindowProps,
+  SchedulingSettingsVerticalPresetProps,
+  SchedulingSettingsPresetOption,
+  SchedulingSettingsLabelsProps,
+  SchedulingSettingsSubmitProps,
+  SchedulingSettingsSavedProps,
+  SchedulingSettingsErrorProps,
   SchedulingServicesTableProps,
   SchedulingResourcesTableProps,
   SchedulingCalendarConnectProps,
