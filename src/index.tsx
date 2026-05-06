@@ -94,6 +94,13 @@ export type {
   UseMyBookingsResult,
 } from './hooks/useMyBookings';
 
+export { useSchedulingAdminGate } from './hooks/useSchedulingAdminGate';
+export type {
+  UseSchedulingAdminGateOptions,
+  UseSchedulingAdminGateResult,
+  SchedulingAdminGateStatus,
+} from './hooks/useSchedulingAdminGate';
+
 // Headless primitives (className-pass-through; lib never imports a CSS framework)
 export { PhotoboothBanner } from './primitives/Wall/PhotoboothBanner';
 export type { PhotoboothBannerProps } from './primitives/Wall/PhotoboothBanner';
@@ -145,6 +152,18 @@ export {
 } from './primitives/Scheduling/Admin';
 export type {
   SchedulingSettingsPanelProps,
+  SchedulingSettingsTimezoneProps,
+  SchedulingSettingsGranularityProps,
+  SchedulingSettingsGranularityOption,
+  SchedulingSettingsMinLeadTimeProps,
+  SchedulingSettingsMaxAdvanceProps,
+  SchedulingSettingsCancellationWindowProps,
+  SchedulingSettingsVerticalPresetProps,
+  SchedulingSettingsPresetOption,
+  SchedulingSettingsLabelsProps,
+  SchedulingSettingsSubmitProps,
+  SchedulingSettingsSavedProps,
+  SchedulingSettingsErrorProps,
   SchedulingServicesTableProps,
   SchedulingResourcesTableProps,
   SchedulingCalendarConnectProps,
@@ -220,6 +239,16 @@ export {
   resolveSchedulingBasePath,
   SchedulingClientError,
 } from './lib/schedulingClient';
+
+export {
+  DEFAULT_TIMEZONE_GROUPS,
+  isInTimezoneGroups,
+  detectBrowserTimezone,
+} from './lib/schedulingTimezones';
+export type {
+  SchedulingTimezoneOption,
+  SchedulingTimezoneGroup,
+} from './lib/schedulingTimezones';
 
 export { resolveAuthBasePath, AuthClientError } from './lib/authClient';
 export type {

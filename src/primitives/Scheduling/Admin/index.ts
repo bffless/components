@@ -1,5 +1,19 @@
 export { SchedulingSettingsPanel } from './SettingsPanel';
-export type { SchedulingSettingsPanelProps } from './SettingsPanel';
+export type {
+  SchedulingSettingsPanelProps,
+  SchedulingSettingsTimezoneProps,
+  SchedulingSettingsGranularityProps,
+  SchedulingSettingsGranularityOption,
+  SchedulingSettingsMinLeadTimeProps,
+  SchedulingSettingsMaxAdvanceProps,
+  SchedulingSettingsCancellationWindowProps,
+  SchedulingSettingsVerticalPresetProps,
+  SchedulingSettingsPresetOption,
+  SchedulingSettingsLabelsProps,
+  SchedulingSettingsSubmitProps,
+  SchedulingSettingsSavedProps,
+  SchedulingSettingsErrorProps,
+} from './SettingsPanel';
 
 export { SchedulingServicesTable } from './ServicesTable';
 export type { SchedulingServicesTableProps } from './ServicesTable';
