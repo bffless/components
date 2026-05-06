@@ -93,13 +93,26 @@ Pipeline JSON lives in [`pipelines.json`](./pipelines.json).
 
 ## Install steps for a template
 
-1. **Provision the schemas.** Copy each entry from `schemas.json` into the template's BFFless project via `mcp__bffless-sites__create_pipeline_schema` (or, equivalently, drop the file into the template's `.bffless/schemas/` directory if your deploy step picks them up there).
+The pack ships with a `bffless-install` CLI binary (also part of `@bffless/components`). The CLI merges this pack's schemas + rule set into the consumer's `.bffless/schemas/schemas.json` and `.bffless/proxy-rules/proxy-rules.json`. The existing `bffless/actions/provision-site` GitHub Action then picks them up like any other template-authored config — same `{{schema_name}}` placeholder substitution, same alias attachment.
 
-2. **Provision the rule set + rules.** Read `pipelines.json` and create a single proxy rule set (`scheduling`) plus its rules. The pipeline configs reference schemas by name via `{{schema_name}}` placeholders — your deploy step must substitute those for the real UUIDs after step 1.
+1. **Add the install step to the template's `provision.yml`** (the workflow that runs on first deploy). Place it after the checkout and before the `provision-site` action:
 
-3. **Attach the rule set to the alias.** Don't replace existing rule set IDs — read the current `proxyRuleSetIds`, append the new scheduling one, write back. (Memory: `feedback_alias_proxyruleset_upsert.md`.)
+   ```yaml
+   - uses: actions/setup-node@v4
+     with:
+       node-version: '22'
 
-4. **Seed `scheduling_settings`.** Provision one row with at minimum `{ timezone, slot_granularity_minutes, vertical_preset }`. Defaults that work for most templates:
+   - name: Install scheduling pack into .bffless/
+     run: |
+       npm install --no-save --prefix . @bffless/components@latest
+       npx bffless-install scheduling
+   ```
+
+   The CLI is idempotent — re-running on a project that already has the pack is a no-op (entries deduped by name). Pass `--force` to overwrite existing entries with the pack's current shape after a pack upgrade.
+
+   Local dev never runs the CLI; the working tree is throwaway in CI. If you do run it locally for testing, `git diff` will flag the merged content and you can revert before committing.
+
+2. **Seed `scheduling_settings`.** Provision-site doesn't seed singleton rows. After the first deploy, an admin must PATCH `/api/scheduling/admin/settings` once with at minimum:
 
    ```json
    {
@@ -112,6 +125,8 @@ Pipeline JSON lives in [`pipelines.json`](./pipelines.json).
      "labels": {}
    }
    ```
+
+   The first admin can do this through `<SchedulingSettingsPanel>` — submitting the panel for the first time creates the row.
 
 5. **Mount the React primitives.** From the template's React island:
 
