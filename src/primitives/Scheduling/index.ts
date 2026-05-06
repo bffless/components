@@ -13,6 +13,10 @@ export {
   SchedulingServicesTable,
   SchedulingResourcesTable,
   SchedulingCalendarConnect,
+  SchedulingServicesPicker,
+  SchedulingWorkingHoursEditor,
+  SchedulingTimeOffList,
+  SchedulingSiteHoursPanel,
 } from './Admin';
 export type {
   SchedulingSettingsPanelProps,
@@ -30,7 +34,12 @@ export type {
   SchedulingSettingsErrorProps,
   SchedulingServicesTableProps,
   SchedulingResourcesTableProps,
+  SchedulingResourcesTableRowActions,
   SchedulingCalendarConnectProps,
+  SchedulingServicesPickerProps,
+  SchedulingWorkingHoursEditorProps,
+  SchedulingTimeOffListProps,
+  SchedulingSiteHoursPanelProps,
 } from './Admin';
 
 export { MyBookingsList } from './MyBookingsList';
