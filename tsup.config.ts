@@ -8,6 +8,9 @@ export default defineConfig({
   // Test files (`*.test.ts(x)` / `*.spec.ts(x)`) are excluded — they pull
   // in dev-only test deps (jest-dom augmentation, RTL) and were both
   // bloating dist/ and breaking the DTS pass at build time.
+  // Files prefixed with `__` are also excluded — convention for shared test
+  // fixtures / helpers (e.g. __test-helpers.ts) that import vitest at the
+  // top level. Same reason: would pull dev deps into the shipped bundle.
   entry: [
     'src/**/*.ts',
     'src/**/*.tsx',
@@ -15,6 +18,8 @@ export default defineConfig({
     '!src/**/*.test.tsx',
     '!src/**/*.spec.ts',
     '!src/**/*.spec.tsx',
+    '!src/**/__*.ts',
+    '!src/**/__*.tsx',
   ],
   format: ['esm', 'cjs'],
   dts: true,

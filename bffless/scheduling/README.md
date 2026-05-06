@@ -132,8 +132,16 @@ The pack ships with a `bffless-install` CLI binary (also part of `@bffless/compo
      useSchedulingAdmin,
      useGoogleCalendarConnect,
      SchedulingCalendarConnect,
+     // Top-level admin tables
      SchedulingServicesTable,
      SchedulingResourcesTable,
+     // Per-resource configuration (mount via SchedulingResourcesTable's
+     // `renderExpanded` slot — these need a resourceId)
+     SchedulingServicesPicker,
+     SchedulingWorkingHoursEditor,
+     SchedulingTimeOffList,
+     // Site-wide hours + closures (resourceId IS NULL)
+     SchedulingSiteHoursPanel,
      // Settings panel — compound primitive with sub-primitives per field
      SchedulingSettingsPanel,
      DEFAULT_TIMEZONE_GROUPS,
@@ -178,6 +186,58 @@ The pack ships with a `bffless-install` CLI binary (also part of `@bffless/compo
    ```
 
    `Timezone` defaults to `groups={DEFAULT_TIMEZONE_GROUPS}` (curated regional dropdown + Custom… fallback + browser-tz shortcut). Pass `groups={null}` for a free-text input. Pass `presets`/`options` to the preset/granularity sub-primitives as either `string[]` / `number[]` or `Array<{ value, label }>` for descriptive labels.
+
+   Per-resource configuration shape — mount the picker / hours / time-off via the resources-table's `renderExpanded` slot so each row can configure itself in place:
+
+   ```tsx
+   <SchedulingResourcesTable
+     admin={admin}
+     connect={connect}
+     renderExpanded={(resource) => (
+       <div className="space-y-6 px-5 py-5 bg-cream/60 border-t border-line">
+         <section>
+           <h4>Services this stylist performs</h4>
+           <SchedulingServicesPicker
+             admin={admin}
+             resourceId={resource.id}
+             chipClassName="border border-line rounded-full px-3 py-1 text-sm"
+             activeChipClassName="bg-charcoal text-warm-white border-charcoal rounded-full px-3 py-1 text-sm"
+           />
+         </section>
+         <section>
+           <h4>Working hours</h4>
+           <SchedulingWorkingHoursEditor
+             admin={admin}
+             resourceId={resource.id}
+             dayClassName="grid grid-cols-[80px_1fr] gap-3 py-2"
+             rowClassName="flex items-center gap-2"
+             inputClassName="border border-line bg-warm-white px-2 py-1 text-sm rounded-sm"
+             buttonClassName="text-xs text-muted hover:text-accent-dark"
+           />
+         </section>
+         <section>
+           <h4>Vacations / time off</h4>
+           <SchedulingTimeOffList
+             admin={admin}
+             resourceId={resource.id}
+             rowClassName="flex items-center gap-3 py-1.5 text-sm"
+             inputClassName="border border-line bg-warm-white px-2 py-1 text-sm rounded-sm"
+           />
+         </section>
+       </div>
+     )}
+   />
+   ```
+
+   Site-wide hours + closures (rows where `resource_id IS NULL` — apply to every stylist):
+
+   ```tsx
+   <SchedulingSiteHoursPanel
+     admin={admin}
+     workingHoursHeading={<h3>Salon hours</h3>}
+     timeOffHeading={<h3>Salon closures</h3>}
+   />
+   ```
 
    Quick `<MyBookingsList>` shape (style with className strings to match the template's palette):
 

@@ -149,6 +149,10 @@ export {
   SchedulingServicesTable,
   SchedulingResourcesTable,
   SchedulingCalendarConnect,
+  SchedulingServicesPicker,
+  SchedulingWorkingHoursEditor,
+  SchedulingTimeOffList,
+  SchedulingSiteHoursPanel,
 } from './primitives/Scheduling/Admin';
 export type {
   SchedulingSettingsPanelProps,
@@ -166,7 +170,12 @@ export type {
   SchedulingSettingsErrorProps,
   SchedulingServicesTableProps,
   SchedulingResourcesTableProps,
+  SchedulingResourcesTableRowActions,
   SchedulingCalendarConnectProps,
+  SchedulingServicesPickerProps,
+  SchedulingWorkingHoursEditorProps,
+  SchedulingTimeOffListProps,
+  SchedulingSiteHoursPanelProps,
 } from './primitives/Scheduling/Admin';
 
 export { MyBookingsList } from './primitives/Scheduling/MyBookingsList';
