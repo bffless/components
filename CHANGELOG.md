@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.15.0](https://github.com/bffless/components/compare/v0.14.0...v0.15.0) (2026-05-06)
+
+
+### Features
+
+* **scheduling:** admin UI for resource_service / working_hours / time_off ([4397c9f](https://github.com/bffless/components/commit/4397c9ff45fe9bcefa3047b26271e22c8f27b12f))
+* **scheduling:** admin UI for resource_service / working_hours / time_off ([de3196a](https://github.com/bffless/components/commit/de3196a0604976de7b5cc5bc26f6910a517a31ea))
+
+
+### Bug Fixes
+
+* **scheduling:** scheduling_admin_update_settings is now an upsert ([d42eba3](https://github.com/bffless/components/commit/d42eba34850d2264cfd702dece2c6fb23ec1757c))
+* **scheduling:** scheduling_admin_update_settings is now an upsert ([83e2bc8](https://github.com/bffless/components/commit/83e2bc865053f3d3ea5526d61849c2a404425b8b))
+
 ## [0.14.0](https://github.com/bffless/components/compare/v0.13.0...v0.14.0) (2026-05-06)
 
 
