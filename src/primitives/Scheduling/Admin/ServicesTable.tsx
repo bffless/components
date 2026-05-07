@@ -31,6 +31,32 @@ const EMPTY_DRAFT: Partial<SchedulingService> = {
   active: true,
 };
 
+/**
+ * Stringly representation of a dollar amount for the price input. Empty string
+ * means the user hasn't typed anything; we treat that as $0 on submit.
+ *
+ * The input is a `text` field with `inputMode="decimal"` rather than
+ * `type="number"` so we can faithfully echo what the user typed (e.g. "30.")
+ * without the browser stripping a trailing decimal point. Conversion to
+ * cents happens at submit time only.
+ */
+function dollarsStringToCents(value: string): number {
+  if (!value) return 0;
+  const trimmed = value.trim();
+  if (!trimmed) return 0;
+  // Accept: "30", "30.", "30.5", "30.50", " $30 ", with comma thousand-seps.
+  const normalized = trimmed.replace(/[$,\s]/g, '');
+  const n = Number.parseFloat(normalized);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.round(n * 100);
+}
+
+function centsToDollarsString(cents: number | null | undefined): string {
+  if (cents == null || !Number.isFinite(cents) || cents <= 0) return '';
+  // Render as "30" when whole, "30.50" when not.
+  return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2);
+}
+
 export function SchedulingServicesTable({
   admin,
   className,
@@ -43,13 +69,21 @@ export function SchedulingServicesTable({
   addLabel,
 }: SchedulingServicesTableProps) {
   const [draft, setDraft] = useState<Partial<SchedulingService>>(EMPTY_DRAFT);
+  // Price is held as a separate string while the user types so we don't lose
+  // intermediate states (e.g. "30." or "") to a too-eager Number() conversion.
+  // Converted to cents at submit time only.
+  const [draftPrice, setDraftPrice] = useState<string>('');
 
   const submitNew = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!draft.name) return;
-    const created = await admin.services.create(draft);
+    const created = await admin.services.create({
+      ...draft,
+      price_cents: dollarsStringToCents(draftPrice),
+    });
     if (created) {
       setDraft(EMPTY_DRAFT);
+      setDraftPrice('');
       onCreated?.(created);
     }
   };
@@ -97,7 +131,21 @@ export function SchedulingServicesTable({
               }}
               className={inputClassName}
             />
-            <span>
+            <input
+              type="text"
+              inputMode="decimal"
+              defaultValue={centsToDollarsString(service.price_cents)}
+              placeholder="0"
+              aria-label={`Price for ${service.name} in dollars`}
+              onBlur={(e) => {
+                const next = dollarsStringToCents(e.target.value);
+                if (next !== (service.price_cents ?? 0)) {
+                  actions.update({ price_cents: next });
+                }
+              }}
+              className={inputClassName}
+            />
+            <span aria-live="polite">
               {formatPrice(service.price_cents ?? 0, currency)}
             </span>
             <button
@@ -142,16 +190,12 @@ export function SchedulingServicesTable({
           className={inputClassName}
         />
         <input
-          type="number"
-          min={0}
-          placeholder="Price (cents)"
-          value={draft.price_cents ?? 0}
-          onChange={(e) =>
-            setDraft((prev) => ({
-              ...prev,
-              price_cents: Number(e.target.value),
-            }))
-          }
+          type="text"
+          inputMode="decimal"
+          placeholder="Price (e.g. 30 or 29.99)"
+          aria-label="Price in dollars"
+          value={draftPrice}
+          onChange={(e) => setDraftPrice(e.target.value)}
           className={inputClassName}
         />
         <button type="submit" className={buttonClassName}>
