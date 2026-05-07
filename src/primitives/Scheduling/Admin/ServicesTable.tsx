@@ -32,28 +32,43 @@ const EMPTY_DRAFT: Partial<SchedulingService> = {
 };
 
 /**
- * Stringly representation of a dollar amount for the price input. Empty string
- * means the user hasn't typed anything; we treat that as $0 on submit.
+ * Parse a dollar amount the user typed into integer cents. Empty / garbage
+ * input falls through to 0 — never NaN. Tolerates a leading "$",
+ * thousand-separator commas, trailing whitespace.
  *
- * The input is a `text` field with `inputMode="decimal"` rather than
- * `type="number"` so we can faithfully echo what the user typed (e.g. "30.")
- * without the browser stripping a trailing decimal point. Conversion to
- * cents happens at submit time only.
+ * Exported so consumers using a custom `renderRow` can reuse the same
+ * conversion in their own price input (the default renderer uses it for
+ * both the new-service form and the existing-row inline edit).
+ *
+ *   dollarsStringToCents("30")       → 3000
+ *   dollarsStringToCents("29.99")    → 2999
+ *   dollarsStringToCents("$1,200.50") → 120050
+ *   dollarsStringToCents("")          → 0
+ *   dollarsStringToCents("abc")       → 0
  */
-function dollarsStringToCents(value: string): number {
+export function dollarsStringToCents(value: string): number {
   if (!value) return 0;
   const trimmed = value.trim();
   if (!trimmed) return 0;
-  // Accept: "30", "30.", "30.5", "30.50", " $30 ", with comma thousand-seps.
   const normalized = trimmed.replace(/[$,\s]/g, '');
   const n = Number.parseFloat(normalized);
   if (!Number.isFinite(n) || n < 0) return 0;
   return Math.round(n * 100);
 }
 
-function centsToDollarsString(cents: number | null | undefined): string {
+/**
+ * Inverse of dollarsStringToCents — render an integer cent amount as a
+ * dollars string suitable for `<input value=…>`. Returns "" for null /
+ * zero / negative so the price input shows its placeholder when there's
+ * nothing meaningful to display.
+ *
+ *   centsToDollarsString(3000)  → "30"
+ *   centsToDollarsString(2999)  → "29.99"
+ *   centsToDollarsString(0)     → ""
+ *   centsToDollarsString(null)  → ""
+ */
+export function centsToDollarsString(cents: number | null | undefined): string {
   if (cents == null || !Number.isFinite(cents) || cents <= 0) return '';
-  // Render as "30" when whole, "30.50" when not.
   return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2);
 }
 

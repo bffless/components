@@ -17,6 +17,8 @@ export {
   SchedulingWorkingHoursEditor,
   SchedulingTimeOffList,
   SchedulingSiteHoursPanel,
+  dollarsStringToCents,
+  centsToDollarsString,
 } from './Admin';
 export type {
   SchedulingSettingsPanelProps,
