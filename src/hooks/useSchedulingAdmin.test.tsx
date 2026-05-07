@@ -129,6 +129,183 @@ describe('useSchedulingAdmin — admin paths use underscores', () => {
   });
 });
 
+describe('useSchedulingAdmin — autoLinkResourceServices', () => {
+  it('creating a service with autoLink default-on fans out resource_service rows for every active resource', async () => {
+    const links: Array<{ resource_id: string; service_id: string }> = [];
+    const calls = installFetch((call) => {
+      if (call.url.includes('/admin/services') && call.method === 'GET') {
+        return { body: { services: [] } };
+      }
+      if (call.url.includes('/admin/resources') && call.method === 'GET') {
+        return {
+          body: {
+            resources: [
+              { id: 'r-rico', name: 'rico', active: true },
+              { id: 'r-alex', name: 'alex', active: true },
+              { id: 'r-old', name: 'old', active: false }, // hidden — should be skipped
+            ],
+          },
+        };
+      }
+      if (call.url.includes('/admin/resource_services') && call.method === 'GET') {
+        return { body: { resource_services: [] } };
+      }
+      if (call.url.includes('/admin/working_hours')) return { body: { working_hours: [] } };
+      if (call.url.includes('/admin/time_off')) return { body: { time_off: [] } };
+      if (call.url.includes('/admin/settings')) return { body: { settings: {} } };
+      if (call.url.includes('/admin/services') && call.method === 'POST') {
+        return {
+          body: {
+            record: {
+              id: 's-haircut',
+              name: (call.body as any)?.name ?? 'Haircut',
+              active: true,
+              duration_minutes: 30,
+            },
+          },
+        };
+      }
+      if (call.url.includes('/admin/resource_services') && call.method === 'POST') {
+        const b = call.body as { resource_id: string; service_id: string };
+        links.push({ resource_id: b.resource_id, service_id: b.service_id });
+        return { body: { record: { id: `link-${links.length}`, ...b } } };
+      }
+      return { body: null };
+    });
+
+    const { result } = renderHook(() => useSchedulingAdmin());
+    await waitFor(() => expect(result.current.resources.list.length).toBe(3));
+
+    await act(async () => {
+      await result.current.services.create({
+        name: 'Haircut',
+        duration_minutes: 30,
+        active: true,
+      });
+    });
+
+    // Two link rows POSTed — one per active resource. Hidden resource skipped.
+    const linkPosts = calls.filter(
+      (c) => c.url.includes('/admin/resource_services') && c.method === 'POST',
+    );
+    expect(linkPosts).toHaveLength(2);
+    expect(links).toEqual(
+      expect.arrayContaining([
+        { resource_id: 'r-rico', service_id: 's-haircut' },
+        { resource_id: 'r-alex', service_id: 's-haircut' },
+      ]),
+    );
+    expect(links.find((l) => l.resource_id === 'r-old')).toBeUndefined();
+  });
+
+  it('creating a resource with autoLink default-on fans out resource_service rows for every active service', async () => {
+    const links: Array<{ resource_id: string; service_id: string }> = [];
+    const calls = installFetch((call) => {
+      if (call.url.includes('/admin/services') && call.method === 'GET') {
+        return {
+          body: {
+            services: [
+              { id: 's-haircut', name: 'Haircut', active: true, duration_minutes: 30 },
+              { id: 's-color', name: 'Color', active: true, duration_minutes: 90 },
+            ],
+          },
+        };
+      }
+      if (call.url.includes('/admin/resources') && call.method === 'GET') return { body: { resources: [] } };
+      if (call.url.includes('/admin/resource_services') && call.method === 'GET') return { body: { resource_services: [] } };
+      if (call.url.includes('/admin/working_hours')) return { body: { working_hours: [] } };
+      if (call.url.includes('/admin/time_off')) return { body: { time_off: [] } };
+      if (call.url.includes('/admin/settings')) return { body: { settings: {} } };
+      if (call.url.includes('/admin/resources') && call.method === 'POST') {
+        return {
+          body: { record: { id: 'r-new', name: (call.body as any)?.name ?? 'rico', active: true } },
+        };
+      }
+      if (call.url.includes('/admin/resource_services') && call.method === 'POST') {
+        const b = call.body as { resource_id: string; service_id: string };
+        links.push({ resource_id: b.resource_id, service_id: b.service_id });
+        return { body: { record: { id: `link-${links.length}`, ...b } } };
+      }
+      return { body: null };
+    });
+
+    const { result } = renderHook(() => useSchedulingAdmin());
+    await waitFor(() => expect(result.current.services.list.length).toBe(2));
+
+    await act(async () => {
+      await result.current.resources.create({ name: 'rico', active: true });
+    });
+
+    const linkPosts = calls.filter(
+      (c) => c.url.includes('/admin/resource_services') && c.method === 'POST',
+    );
+    expect(linkPosts).toHaveLength(2);
+    expect(links).toEqual(
+      expect.arrayContaining([
+        { resource_id: 'r-new', service_id: 's-haircut' },
+        { resource_id: 'r-new', service_id: 's-color' },
+      ]),
+    );
+  });
+
+  it('autoLinkResourceServices: false suppresses the fan-out', async () => {
+    const calls = installFetch((call) => {
+      if (call.url.includes('/admin/services') && call.method === 'GET') return { body: { services: [] } };
+      if (call.url.includes('/admin/resources') && call.method === 'GET') {
+        return { body: { resources: [{ id: 'r-rico', name: 'rico', active: true }] } };
+      }
+      if (call.url.includes('/admin/resource_services') && call.method === 'GET') return { body: { resource_services: [] } };
+      if (call.url.includes('/admin/working_hours')) return { body: { working_hours: [] } };
+      if (call.url.includes('/admin/time_off')) return { body: { time_off: [] } };
+      if (call.url.includes('/admin/settings')) return { body: { settings: {} } };
+      if (call.url.includes('/admin/services') && call.method === 'POST') {
+        return { body: { record: { id: 's-haircut', name: 'Haircut', active: true } } };
+      }
+      return { body: null };
+    });
+
+    const { result } = renderHook(() =>
+      useSchedulingAdmin({ autoLinkResourceServices: false }),
+    );
+    await waitFor(() => expect(result.current.resources.list.length).toBe(1));
+
+    await act(async () => {
+      await result.current.services.create({ name: 'Haircut', active: true });
+    });
+
+    const linkPosts = calls.filter(
+      (c) => c.url.includes('/admin/resource_services') && c.method === 'POST',
+    );
+    expect(linkPosts).toHaveLength(0);
+  });
+
+  it('first service created when there are zero resources still resolves cleanly (no fan-out target)', async () => {
+    const calls = installFetch((call) => {
+      if (call.url.includes('/admin/services') && call.method === 'GET') return { body: { services: [] } };
+      if (call.url.includes('/admin/resources') && call.method === 'GET') return { body: { resources: [] } };
+      if (call.url.includes('/admin/resource_services') && call.method === 'GET') return { body: { resource_services: [] } };
+      if (call.url.includes('/admin/working_hours')) return { body: { working_hours: [] } };
+      if (call.url.includes('/admin/time_off')) return { body: { time_off: [] } };
+      if (call.url.includes('/admin/settings')) return { body: { settings: {} } };
+      if (call.url.includes('/admin/services') && call.method === 'POST') {
+        return { body: { record: { id: 's-haircut', name: 'Haircut', active: true } } };
+      }
+      return { body: null };
+    });
+
+    const { result } = renderHook(() => useSchedulingAdmin());
+    await act(async () => {
+      await result.current.services.create({ name: 'Haircut', active: true });
+    });
+
+    const linkPosts = calls.filter(
+      (c) => c.url.includes('/admin/resource_services') && c.method === 'POST',
+    );
+    expect(linkPosts).toHaveLength(0);
+    expect(result.current.services.error).toBeNull();
+  });
+});
+
 describe('useSchedulingAdmin — optimistic update reverts on error', () => {
   it('applies the patch locally, reverts list on PATCH failure', async () => {
     installFetch((call) => {
