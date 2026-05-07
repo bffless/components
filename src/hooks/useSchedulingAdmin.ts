@@ -20,6 +20,17 @@ export interface UseSchedulingAdminOptions {
   apiBase?: string;
   /** Skip initial GETs on mount; consumer drives via .refresh(). */
   skipInitialLoad?: boolean;
+  /**
+   * When true (default), creating a service auto-fans-out
+   * scheduling_resource_service rows linking the new service to every
+   * active resource — and creating a resource fans out to every active
+   * service. Default = "every stylist does every service" — owners opt OUT
+   * via the services picker, not in.
+   *
+   * Set to false to disable the convenience and force the consumer to
+   * write resource_service rows manually after each create.
+   */
+  autoLinkResourceServices?: boolean;
 }
 
 interface AdminEntity {
@@ -302,13 +313,97 @@ export function useSchedulingAdmin(
     initialLoad,
   );
 
+  // Auto-link convenience.
+  //
+  // When `autoLinkResourceServices` is on (default), wrapping the create()s
+  // for services + resources spawns the matching resource_service rows so
+  // the booking flow returns non-empty resource lists out of the box.
+  //
+  // The wrapper:
+  //   1. delegates to the original create()
+  //   2. on success, reads the OPPOSITE catalog (resources for service-create,
+  //      services for resource-create) and POSTs one resource_service row per
+  //      active counterpart
+  //   3. refreshes resourceServices once at the end so the picker chips show
+  //      the new links without a re-fetch round-trip per row
+  //
+  // Failures of individual link creates are non-fatal — the create itself
+  // succeeded, the link spawn is convenience. Errors surface via the
+  // resourceServices.error channel.
+  const autoLink = opts.autoLinkResourceServices !== false;
+
+  // Snapshot the latest list refs so the wrappers always read post-create
+  // catalogs without stale-closure issues.
+  const resourcesListRef = useRef(resources.list);
+  resourcesListRef.current = resources.list;
+  const servicesListRef = useRef(services.list);
+  servicesListRef.current = services.list;
+
+  const wrappedServices: CrudResult<SchedulingService> = useMemo(
+    () =>
+      autoLink
+        ? {
+            ...services,
+            create: async (input) => {
+              const created = await services.create(input);
+              if (!created || !created.id) return created;
+              const activeResources = resourcesListRef.current.filter(
+                (r) => r.active !== false,
+              );
+              if (activeResources.length === 0) return created;
+              await Promise.all(
+                activeResources.map((r) =>
+                  resourceServices.create({
+                    resource_id: r.id,
+                    service_id: created.id,
+                  } as Partial<SchedulingResourceServiceLink & { id: string }>),
+                ),
+              );
+              return created;
+            },
+          }
+        : services,
+    // We intentionally read live list state via refs above; depending on the
+    // refs themselves keeps this memoized identity stable across list churn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [autoLink, services, resourceServices],
+  );
+
+  const wrappedResources: CrudResult<SchedulingResource> = useMemo(
+    () =>
+      autoLink
+        ? {
+            ...resources,
+            create: async (input) => {
+              const created = await resources.create(input);
+              if (!created || !created.id) return created;
+              const activeServices = servicesListRef.current.filter(
+                (s) => s.active !== false,
+              );
+              if (activeServices.length === 0) return created;
+              await Promise.all(
+                activeServices.map((s) =>
+                  resourceServices.create({
+                    resource_id: created.id,
+                    service_id: s.id,
+                  } as Partial<SchedulingResourceServiceLink & { id: string }>),
+                ),
+              );
+              return created;
+            },
+          }
+        : resources,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [autoLink, resources, resourceServices],
+  );
+
   // Keep a stable reference so consumers can put the result in a Context
   // without churn between renders.
   const lastRef = useRef<UseSchedulingAdminResult | null>(null);
   const next: UseSchedulingAdminResult = {
     basePath,
-    services,
-    resources,
+    services: wrappedServices,
+    resources: wrappedResources,
     resourceServices,
     workingHours,
     timeOff,

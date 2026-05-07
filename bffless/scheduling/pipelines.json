@@ -2112,7 +2112,7 @@
       "timeout": 30000,
       "pipelineConfig": {
         "name": "scheduling_admin_claim",
-        "description": "First-claim bootstrap. While scheduling_admin_user is empty, the signed-in caller is added as the first admin. Subsequent calls 403. Boolean conditions are precomputed in a function_handler since pipeline conditions don't evaluate inline === comparisons.",
+        "description": "First-claim bootstrap. While scheduling_admin_user is empty, the signed-in caller is added as the first admin AND default Mon-Fri 09:00-17:00 site-wide working hours are seeded so the booking flow works on day one without further admin steps. Subsequent calls 403. Boolean conditions are precomputed in a function_handler since pipeline conditions don't evaluate inline === comparisons.",
         "validators": [
           {
             "type": "auth_required",
@@ -2130,11 +2130,20 @@
             }
           },
           {
+            "id": "countHours",
+            "name": "countHours",
+            "handlerType": "db_aggregate",
+            "config": {
+              "schemaId": "{{scheduling_working_hours}}",
+              "operation": "count"
+            }
+          },
+          {
             "id": "compute",
             "name": "compute",
             "handlerType": "function_handler",
             "config": {
-              "code": "function handler({ steps, user }) {\n  var c = (steps.count && steps.count.result) || 0;\n  return {\n    canClaim: c === 0,\n    alreadyClaimed: c > 0,\n    userId: user && user.id ? user.id : '',\n    email: user && user.email ? user.email : ''\n  };\n}"
+              "code": "function handler({ steps, user }) {\n  var c = (steps.count && steps.count.result) || 0;\n  var h = (steps.countHours && steps.countHours.result) || 0;\n  var canClaim = c === 0;\n  return {\n    canClaim: canClaim,\n    alreadyClaimed: c > 0,\n    seedHours: canClaim && h === 0,\n    userId: user && user.id ? user.id : '',\n    email: user && user.email ? user.email : '',\n    monRow: { day_of_week: 1, start_time: '09:00', end_time: '17:00' },\n    tueRow: { day_of_week: 2, start_time: '09:00', end_time: '17:00' },\n    wedRow: { day_of_week: 3, start_time: '09:00', end_time: '17:00' },\n    thuRow: { day_of_week: 4, start_time: '09:00', end_time: '17:00' },\n    friRow: { day_of_week: 5, start_time: '09:00', end_time: '17:00' }\n  };\n}"
             }
           },
           {
@@ -2151,11 +2160,81 @@
             }
           },
           {
+            "id": "seed_mon",
+            "name": "seed_mon",
+            "handlerType": "data_create",
+            "config": {
+              "fields": {
+                "day_of_week": "steps.compute.monRow.day_of_week",
+                "start_time": "steps.compute.monRow.start_time",
+                "end_time": "steps.compute.monRow.end_time"
+              },
+              "schemaId": "{{scheduling_working_hours}}",
+              "condition": "steps.compute.seedHours"
+            }
+          },
+          {
+            "id": "seed_tue",
+            "name": "seed_tue",
+            "handlerType": "data_create",
+            "config": {
+              "fields": {
+                "day_of_week": "steps.compute.tueRow.day_of_week",
+                "start_time": "steps.compute.tueRow.start_time",
+                "end_time": "steps.compute.tueRow.end_time"
+              },
+              "schemaId": "{{scheduling_working_hours}}",
+              "condition": "steps.compute.seedHours"
+            }
+          },
+          {
+            "id": "seed_wed",
+            "name": "seed_wed",
+            "handlerType": "data_create",
+            "config": {
+              "fields": {
+                "day_of_week": "steps.compute.wedRow.day_of_week",
+                "start_time": "steps.compute.wedRow.start_time",
+                "end_time": "steps.compute.wedRow.end_time"
+              },
+              "schemaId": "{{scheduling_working_hours}}",
+              "condition": "steps.compute.seedHours"
+            }
+          },
+          {
+            "id": "seed_thu",
+            "name": "seed_thu",
+            "handlerType": "data_create",
+            "config": {
+              "fields": {
+                "day_of_week": "steps.compute.thuRow.day_of_week",
+                "start_time": "steps.compute.thuRow.start_time",
+                "end_time": "steps.compute.thuRow.end_time"
+              },
+              "schemaId": "{{scheduling_working_hours}}",
+              "condition": "steps.compute.seedHours"
+            }
+          },
+          {
+            "id": "seed_fri",
+            "name": "seed_fri",
+            "handlerType": "data_create",
+            "config": {
+              "fields": {
+                "day_of_week": "steps.compute.friRow.day_of_week",
+                "start_time": "steps.compute.friRow.start_time",
+                "end_time": "steps.compute.friRow.end_time"
+              },
+              "schemaId": "{{scheduling_working_hours}}",
+              "condition": "steps.compute.seedHours"
+            }
+          },
+          {
             "id": "respond_claimed",
             "name": "respond_claimed",
             "handlerType": "response_handler",
             "config": {
-              "body": "{\"success\": true, \"isAdmin\": true, \"message\": \"You are the scheduling admin.\"}",
+              "body": "{\"success\": true, \"isAdmin\": true, \"seededDefaultHours\": {{steps.compute.seedHours}}, \"message\": \"You are the scheduling admin.\"}",
               "status": 200,
               "condition": "steps.compute.canClaim"
             }

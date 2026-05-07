@@ -116,6 +116,10 @@ The pack ships with a `bffless-install` CLI binary (also part of `@bffless/compo
 
    The pipeline's defaults if the body omits a field and no row exists: `America/New_York` timezone, 30-min granularity, 60-min lead time, 60-day max advance, 24-hr cancellation window, `salon` preset, `{}` labels.
 
+3. **Default working hours seed on first claim.** When the first admin claims via `POST /api/scheduling/admin/claim`, the same pipeline seeds five `scheduling_working_hours` rows with `resource_id IS NULL` — Mon–Fri 09:00–17:00 site-wide. Every stylist inherits these unless overridden. The buyer's booking flow returns real slots immediately after claim, instead of "No openings in the next two weeks." The seed is gated on `working_hours` being empty, so re-running claim (impossible by design — it's one-shot) or running it against a non-empty table is a no-op. Owners change the defaults via `<SchedulingSiteHoursPanel>` or override per-stylist via the `Set up` panel.
+
+4. **Auto-link new services ↔ resources.** `useSchedulingAdmin` defaults `autoLinkResourceServices: true` — `services.create()` fans out `scheduling_resource_service` rows to every active resource, and `resources.create()` does the same in the other direction. Default-on means "every stylist does every service" — owners opt OUT via the services-picker chips inside the per-stylist `Set up` panel, not in. Pass `useSchedulingAdmin({ autoLinkResourceServices: false })` to suppress the convenience and write link rows manually.
+
 5. **Mount the React primitives.** From the template's React island:
 
    ```tsx
