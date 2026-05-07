@@ -15,7 +15,11 @@ export type {
   SchedulingSettingsErrorProps,
 } from './SettingsPanel';
 
-export { SchedulingServicesTable } from './ServicesTable';
+export {
+  SchedulingServicesTable,
+  dollarsStringToCents,
+  centsToDollarsString,
+} from './ServicesTable';
 export type { SchedulingServicesTableProps } from './ServicesTable';
 
 export { SchedulingResourcesTable } from './ResourcesTable';
