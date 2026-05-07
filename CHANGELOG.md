@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.16.0](https://github.com/bffless/components/compare/v0.15.0...v0.16.0) (2026-05-07)
+
+
+### Features
+
+* **scheduling:** zero-config onboarding — seed default hours + auto-link services↔resources ([f4f805b](https://github.com/bffless/components/commit/f4f805b99421a04cff010923400d48f68f08662d))
+* **scheduling:** zero-config onboarding — seed default hours + auto-link services↔resources ([65be589](https://github.com/bffless/components/commit/65be589ef4ac5053239edcfc220c883f56010ce1))
+
+
+### Bug Fixes
+
+* **scheduling:** export dollarsStringToCents + centsToDollarsString helpers ([b9a0a69](https://github.com/bffless/components/commit/b9a0a6965907ed1198147a26ee53d1120e3fa92c))
+* **scheduling:** ServicesTable price input takes dollars, not raw cents ([52f878b](https://github.com/bffless/components/commit/52f878b59f093b0e297e0a77d0d0863f0d8b71f3))
+* **scheduling:** ServicesTable price input takes dollars, not raw cents ([65e7589](https://github.com/bffless/components/commit/65e75899cb894a1d7a598f7a6e8023127a0e3413))
+
 ## [0.15.0](https://github.com/bffless/components/compare/v0.14.0...v0.15.0) (2026-05-06)
 
 
