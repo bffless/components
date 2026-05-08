@@ -5,23 +5,16 @@
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
-  "bin": {
-    "bffless-install": "./bin/install.js"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
     },
-    "./package.json": "./package.json",
-    "./bffless/scheduling/schemas.json": "./bffless/scheduling/schemas.json",
-    "./bffless/scheduling/pipelines.json": "./bffless/scheduling/pipelines.json"
+    "./package.json": "./package.json"
   },
   "files": [
-    "dist",
-    "bffless",
-    "bin/install.js"
+    "dist"
   ],
   "scripts": {
     "build": "tsup",
