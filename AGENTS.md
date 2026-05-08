@@ -15,6 +15,14 @@ the hood. It's the DRY layer that took ~8400 lines of duplicated `Wall.tsx`
 state machinery across 9 sites and turned it into ~3600 lines of mostly-styling
 JSX plus a single shared library.
 
+> **Scope as of 1.0.0.** This package is the runtime React lib only. BFFless
+> install packs (schemas + pipelines, e.g. scheduling) and the
+> `bffless-install` CLI moved to a sibling private repo,
+> [`bffless/templates`](https://github.com/bffless/templates), consumed via
+> `github:bffless/templates#<tag>` from each template's `provision.yml` /
+> `compose.yml`. See the niche × style decoupled-templates story for the
+> rationale.
+
 - **Distribution**: public npm — `pnpm add @bffless/components`. CommonJS build
   in `dist/`, `.d.ts` types co-located. Source in `src/` is **never** shipped
   to consumers.
@@ -57,11 +65,6 @@ web-templates/components/
 ├── release-please-config.json
 ├── .release-please-manifest.json   anchors current version.
 ├── .github/workflows/release.yml   release-please + npm publish.
-├── bffless/                  BFFless install packs (schemas + pipelines).
-│   └── scheduling/           See `bffless/scheduling/README.md`.
-│       ├── README.md         install steps + reference for templates.
-│       ├── schemas.json      8 schema definitions.
-│       └── pipelines.json    1 rule set, 29 rules. Schema refs templated as {{name}}.
 └── src/
     ├── index.tsx             single public entry. Re-exports everything.
     ├── hooks/                state + side effects. Zero styling concerns.
@@ -89,10 +92,11 @@ The four src/ subfolders map exactly onto the architecture sections in
 `README.md`. Don't add a new top-level src/ folder without a strong reason —
 plays badly with the showcase docs and CHANGELOG conventions.
 
-Top-level `bffless/` is for **BFFless install packs** — JSON artifacts that
-define schemas + pipelines a component needs in any consumer's project. Ship
-each component's pack under its own slug (`bffless/<slug>/`). See the
-"BFFless install packs" section below for the convention.
+> **Install packs** (schemas + pipelines that a component needs provisioned in
+> a consumer's BFFless project) are no longer in this repo. They live in
+> [`bffless/templates`](https://github.com/bffless/templates) under
+> `packs/<slug>/`. New runtime React work goes here; new install packs go
+> there. See `bffless/templates/AGENTS.md` for the pack-authoring playbook.
 
 ---
 
@@ -275,11 +279,11 @@ the showcase.
    single root entry.
 
 5.5. **BFFless install pack** (if the component needs backend pipelines /
-   schemas) — drop `bffless/<slug>/{schemas,pipelines}.json` + a `README.md`
-   alongside. Add the directory to the package's `files` and surface each JSON
-   file via `exports`. See the "BFFless install packs" section. Templates
-   provision from this artifact instead of redefining their own — that's the
-   whole point of putting it in the lib.
+   schemas) — author it in
+   [`bffless/templates`](https://github.com/bffless/templates) under
+   `packs/<slug>/{schemas,pipelines}.json` + `README.md`. Templates pull it
+   in via `github:bffless/templates#<tag>` from `provision.yml` /
+   `compose.yml`. Don't add `bffless/` directories back to this repo.
 
 6. **Showcase entry** — add a `ComponentEntry` to
    `~/projects/sahp/sites-bffless-app/apps/components/src/data/components.ts`
@@ -427,84 +431,13 @@ high level is fine because the lib calls them and consumers need to know they
 exist; listing the schemas behind them isn't.
 
 For new components going forward, the canonical schemas + pipelines live in
-**this package** (`bffless/<slug>/`) — see the next section. Templates pull
-from there instead of redefining their own. The Wall component predates this
+[`bffless/templates`](https://github.com/bffless/templates) under
+`packs/<slug>/` — see that repo's `AGENTS.md` for the pack-authoring
+playbook. Templates pull packs in via `github:bffless/templates#<tag>` from
+their `provision.yml` / `compose.yml`. The Wall component predates the pack
 convention and still has its definitions copied into each template's
-`.bffless/`; convert it when you next touch it.
-
----
-
-## BFFless install packs
-
-A new component that needs its own backend (schemas + pipelines) ships those
-definitions **inside this package** under `bffless/<slug>/`. This keeps the
-canonical shape in one place — bug fixes and feature additions land in the
-package and propagate to consumers via the next bump, instead of needing
-ports across N templates.
-
-### Layout per slug
-
-```
-bffless/<slug>/
-├── README.md         install steps for templates + reference for the schemas
-│                     and pipelines + the architectural decisions worth knowing
-│                     + a "bug-fix history (don't reintroduce)" section
-├── schemas.json      JSON array of schema definitions (no UUIDs)
-└── pipelines.json    one rule set { name, description, rules: [...] }
-                      schema references templated as {{schema_name}}
-```
-
-Schema defs follow the same shape as the existing per-template
-`.bffless/schemas/schemas.json` files: `{ name, description, fields: [{ name,
-type, required }] }`. Pipeline defs match the proxy-rule shape that
-`mcp__bffless-sites__create_proxy_rule` accepts. Schema UUIDs are templated as
-`{{<schema_name>}}` — the consuming template's deploy step substitutes after
-provisioning the schemas.
-
-### Reference: scheduling
-
-`bffless/scheduling/` is the working example — 8 schemas + 29 rules covering
-the public booking flow, admin CRUD, per-site admin gate, and Google Calendar
-integration. See its `README.md` for the install playbook and the bug-fix
-history (form_handler null defaults, condition booleans, body-id PATCH/DELETE,
-etc.) any new install pack should also document for its own pipelines.
-
-### Updating package.json when you add a new pack
-
-1. Add the directory to `files`:
-   ```jsonc
-   "files": ["dist", "bffless"]
-   ```
-   (Already includes `bffless` — the rule "don't expand `files`" elsewhere in
-   this doc is **scoped to `dist` and source**. The `bffless/` install packs
-   are explicit data artifacts and ship as part of the public surface.)
-2. Surface each JSON file as a package export so consumers can
-   `require.resolve()` it:
-   ```jsonc
-   "exports": {
-     ".": { ... },
-     "./package.json": "./package.json",
-     "./bffless/<slug>/schemas.json": "./bffless/<slug>/schemas.json",
-     "./bffless/<slug>/pipelines.json": "./bffless/<slug>/pipelines.json"
-   }
-   ```
-3. Run `pnpm pack --dry-run` and grep for `bffless/` to confirm the JSON
-   files are in the tarball.
-4. Bump as `feat:` if the pack is new, or `fix:` if you're correcting an
-   existing pack's shape (incompatible field renames are still `feat!:`).
-
-### Versioning install packs
-
-Install packs version with the package. A template that imports the React
-primitives and provisions the install pack should pin to a `^x.y.0` range so
-patch fixes (broken pipeline shapes, schema additions that are non-destructive)
-flow without manual reprovisioning. Major bumps to a pack should ship a
-migration note in the slug's `README.md`.
-
-Long term, a `bffless install <slug>` CLI / skill will read the pack and
-provision automatically. Until that exists, templates copy the JSON into their
-own `.bffless/` directory at clone time and the deploy step does the
-substitution.
+`.bffless/`; convert it when you next touch it (port to `bffless/templates`,
+not back into this repo).
 
 ---
 
@@ -536,8 +469,8 @@ Don't:
   `@bffless/admin-toolbar` works because it's dropped onto arbitrary host
   pages without Tailwind. Different problem; different solution.)
 - Don't ship source `.tsx` to npm. The `files` array intentionally lists
-  only `dist` (compiled output) and `bffless` (BFFless install packs — see
-  the section above). Adding `src` or any other source path is a regression.
+  only `dist` (compiled output). Adding `src`, `bffless/`, `bin/`, or any
+  other source path is a regression.
 - Don't add a default export. Every public symbol is a named export.
 - Don't break ESM/CJS interop without a plan. We're CommonJS today; switching
   to ESM requires either explicit `.js` extensions in source imports or a
