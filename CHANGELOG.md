@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.17.0](https://github.com/bffless/components/compare/v0.16.0...v0.17.0) (2026-05-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* `@bffless/components/bffless/scheduling/{schemas,pipelines}.json` is no longer exported from this package. Consumers that resolved those JSON files via `require.resolve('@bffless/components/bffless/scheduling/...')` must switch to installing `github:bffless/templates#<tag>` and reading from `@bffless/templates/packs/scheduling/`.
+
+### Features
+
+* drop scheduling install pack and bffless-install CLI ([821d46d](https://github.com/bffless/components/commit/821d46d43b2580571179cb77755848c29b2e71c0))
+
 ## [0.16.0](https://github.com/bffless/components/compare/v0.15.0...v0.16.0) (2026-05-07)
 
 
