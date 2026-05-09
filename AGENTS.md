@@ -306,13 +306,22 @@ the showcase.
 
 - `feat:` → minor bump (0.4.0 → 0.5.0)
 - `fix:`, `chore:`, `refactor:`, `docs:` → patch (0.4.0 → 0.4.1)
-- `feat!:` or any commit with `BREAKING CHANGE:` footer → major (0.x → 1.0.0)
+- `feat!:` or any commit with `BREAKING CHANGE:` footer → **minor on 0.x**
+  (0.16.0 → 0.17.0). Confirmed empirically by the scheduling-pack drop in
+  v0.17.0 ([PR #43](https://github.com/bffless/components/pull/43)).
+  release-please will **not** auto-promote 0.x to 1.0.0 while
+  `bump-minor-pre-major: true`.
 
 Once the lib hits 1.x:
 
 - `feat:` → minor (1.0.0 → 1.1.0)
 - `fix:` → patch (1.0.0 → 1.0.1)
 - `feat!:` → major (1.0.0 → 2.0.0)
+
+To intentionally promote to 1.0.0, either flip
+`bump-minor-pre-major: false` in `release-please-config.json` (then the
+next breaking change → 1.0.0), or land a commit with a `Release-As: 1.0.0`
+footer to force release-please to use that exact version.
 
 Consumers pin via `^X.Y.Z` so semver-compatible updates flow on `pnpm install`.
 A `feat!:` is a hard break — every consumer must be migrated before the
