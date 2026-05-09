@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.1](https://github.com/bffless/components/compare/v0.17.0...v0.17.1) (2026-05-09)
+
+
+### Documentation
+
+* correct AGENTS.md versioning on `feat!:` semantics ([47d6c08](https://github.com/bffless/components/commit/47d6c0835deee967f331ed413e48f6258d3d35f8))
+* correct AGENTS.md versioning on `feat!:` semantics ([80d4d2d](https://github.com/bffless/components/commit/80d4d2d5289e56c84d872337e549f117836f3868))
+
 ## [0.17.0](https://github.com/bffless/components/compare/v0.16.0...v0.17.0) (2026-05-08)
 
 
